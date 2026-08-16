@@ -1,0 +1,19 @@
+# Java build output
+out/
+*.class
+*.jar
+
+# IDE settings
+.idea/
+.vscode/
+*.iml
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+~$*
