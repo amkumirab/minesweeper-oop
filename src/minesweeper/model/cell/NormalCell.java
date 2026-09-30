@@ -1,5 +1,9 @@
 package minesweeper.model.cell;
 
+import minesweeper.model.Board;
+import minesweeper.model.Board.CellRevealOutcome;
+import minesweeper.model.Player;
+
 /**
  * A safe cell that shows the count of dangerous neighbours when revealed.
  *
@@ -21,9 +25,9 @@ public class NormalCell extends Cell {
     // ── Cell hooks ───────────────────────────────────────────────────────────
 
     @Override
-    protected void onReveal() {
-        // Nothing extra needed for a normal cell — the base class already
-        // marks it revealed; the board handles flood-fill from outside.
+    protected CellRevealOutcome onReveal(Player player, Board<? extends Cell> board) {
+        player.addScore(1);
+        return CellRevealOutcome.NORMAL;
     }
 
     // ── adjacency info ───────────────────────────────────────────────────────

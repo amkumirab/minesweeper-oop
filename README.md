@@ -20,13 +20,13 @@ run.bat --console
 
 ```bash
 # 1 — compile
-./compile.sh
+bash compile.sh
 
 # 2 — run the Swing interface
-./run.sh
+bash run.sh
 
 # Optional — run the console interface
-./run.sh --console
+bash run.sh --console
 ```
 
 Or manually:
@@ -34,6 +34,26 @@ Or manually:
 javac -encoding UTF-8 -d out -sourcepath src $(find src -name "*.java")
 java -cp out minesweeper.Main
 ```
+
+---
+
+## Tests
+
+Run the dependency-free regression suite with JDK 17 or newer:
+
+```bat
+test.bat
+```
+
+On Linux / macOS:
+
+```bash
+bash test.sh
+```
+
+The tests cover cell effects, repeated and flagged reveals, flood-fill safety,
+first-click generation, Freeze handling, and a custom reward cell. A failing
+test makes the command exit with a nonzero status. Compiled files stay in `out/`.
 
 ---
 
@@ -85,11 +105,11 @@ src/minesweeper/
 |---|---|---|
 | **Encapsulation** | `Cell`, `Player`, `Board`, `GameSettings` | All state is `private`; mutated only through controlled methods. `GameSettings` is fully immutable. |
 | **Abstraction** | `Cell` (abstract class) + all four interfaces | Consumers work with `Revealable` / `Explodable` etc. without knowing the concrete type. |
-| **Inheritance** | `NormalCell`, `MineCell`, `TrapCell`, `BonusCell` all extend `Cell` | Common reveal guard, flag logic, and `toString()` coercion live once in the base class. |
-| **Polymorphism — Overriding** | `onReveal()`, `getRevealedSymbol()`, `getType()` | Each subclass provides its own reveal behaviour and display symbol. |
-| **Polymorphism — Overloading** | `Board.reveal(int,int,Player)` and `Board.reveal(T,Player)` | Two `reveal` signatures for convenience; also `readInt(prompt,min,max)` in the UI. |
+| **Inheritance** | `NormalCell`, `MineCell`, `TrapCell`, `BonusCell` all extend `Cell` | Common reveal guards, flag logic, and string conversion live once in the base class. |
+| **Polymorphism — Overriding** | `onReveal(Player,Board)`, `getRevealDescription()`, `getRevealedSymbol()`, `getType()` | Each subclass applies its own gameplay effect and supplies its description and display symbol. |
+| **Polymorphism — Overloading** | `Board.reveal(int,int,Player)` / `Board.reveal(T,Player)` and `Cell.reveal()` / `Cell.reveal(Player,Board)` | Reveal by coordinates or by cell reference; distinguish effect-free reveals from gameplay reveals. |
 | **Polymorphism — Parametric** | `Board<T extends Cell>` | The board is generic — it can hold `Cell` or any subtype, keeping it reusable. |
-| **Polymorphism — Coercion** | `Cell.toString()` | A `Cell` is automatically coerced to a `String` for board rendering. |
+| **String conversion** | `Cell.toString()` | Provides a text representation of a cell; the UIs use their own styled rendering. |
 
 ### Extensibility and Composition
 
@@ -106,7 +126,7 @@ src/minesweeper/
 | **Custom exceptions** | `GameOverException`, `InvalidCoordinateException`, `CellAlreadyRevealedException`, `InvalidGameSettingsException` — each has a clear, specific meaning. |
 | **Modularity** | `interfaces/`, `model/`, `engine/`, `exceptions/`, `ui/` — each layer has one responsibility and does not reach into another layer's internals. |
 | **Reusability** | `Cell` can be extended into any new type. `Board<T>` can be reused for different games. `GameTimer` is completely independent. |
-| **Template Method** | `Cell.reveal()` is `final` and calls the abstract `onReveal()` hook — subclasses customise behaviour without breaking the reveal guard. |
+| **Template Method** | `Cell.reveal(Player,Board)` is `final` and calls the abstract `onReveal(Player,Board)` hook — subclasses customise effects while sharing revealed/flagged guards. |
 | **Builder pattern** | `GameSettings.Builder` produces valid, immutable settings or throws `InvalidGameSettingsException` before a bad state can exist. |
 
 ---
@@ -154,8 +174,9 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 
 ## Design Decisions
 
-1. **`Cell.reveal()` is `final`** — enforcing the "already revealed" guard in one place (template method). Subclasses hook into `onReveal()` only.
+1. **`Cell.reveal(Player,Board)` is `final`** — guarding repeated and flagged gameplay reveals before calling the subclass's `onReveal(Player,Board)` implementation. The no-argument overload only marks a cell revealed and retains the duplicate-reveal exception.
 2. **`GameSettings` is immutable** — built via a `Builder` that validates all invariants before the object exists. Impossible to create an invalid settings object.
-3. **The main reveal flow uses `Board.CellRevealOutcome`** — the board returns a typed outcome and the engine switches on it, keeping the primary dispatch logic explicit.
+3. **Cell effects use dynamic dispatch** — `Board` calls `cell.reveal(player, board)` without selecting an effect by concrete class. It tracks safe reveals and performs flood-fill, then the engine uses the typed `Board.CellRevealOutcome` to check game state and build a message. NORMAL and BONUS outcomes count toward victory; MINE and TRAP do not. New subclasses implement `onReveal(Player,Board)` and can override `getRevealDescription()` without changing the board's effect dispatch.
 4. **Board generation is deferred** to the first click — guaranteeing a safe 3×3 zone around it, matching real Minesweeper behaviour.
 5. **`GameOverException` is a checked exception** — callers (the UI) are *forced* by the compiler to handle game-ending events, preventing them from being silently ignored.
+6. **Freeze applies to valid reveals** — out-of-bounds, flagged, and already-revealed targets leave the pending Freeze effect untouched.

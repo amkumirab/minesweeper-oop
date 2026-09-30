@@ -50,8 +50,8 @@ public class Board<T extends Cell> {
 
     /**
      * Reveals the cell at {@code (row, col)} and returns the result type.
-     * Handles flood-fill for empty cells and delegates post-reveal effects to
-     * the GameEngine via the returned {@link CellRevealOutcome}.
+     * Delegates effects to the cell, tracks safe reveals, and handles flood-fill.
+     * The GameEngine uses the returned outcome to check the game state.
      *
      * Overloading: this is one of two {@code reveal} signatures.
      */
@@ -61,34 +61,15 @@ public class Board<T extends Cell> {
         validateCoords(row, col);
         T cell = grid[row][col];
 
-        if (cell.isRevealed())  return CellRevealOutcome.ALREADY_REVEALED;
-        if (cell.isFlagged())   return CellRevealOutcome.FLAGGED;
-
-        cell.reveal();    // marks revealed; throws CellAlreadyRevealedException if double-called
-
-        if (cell instanceof MineCell mine) {
-            mine.explode(player);
-            return CellRevealOutcome.MINE;
-
-        } else if (cell instanceof TrapCell trap) {
-            trap.explode(player);
-            return CellRevealOutcome.TRAP;
-
-        } else if (cell instanceof BonusCell bonus) {
-            bonus.applyReward(player, this);
+        CellRevealOutcome outcome = cell.reveal(player, this);
+        if (outcome == CellRevealOutcome.NORMAL || outcome == CellRevealOutcome.BONUS) {
             revealedSafeCells++;
-            return CellRevealOutcome.BONUS;
-
-        } else if (cell instanceof NormalCell normal) {
-            revealedSafeCells++;
-            player.addScore(1);
-            if (normal.getAdjacentDanger() == 0) {
-                floodReveal(row, col, player);
-            }
-            return CellRevealOutcome.NORMAL;
         }
-
-        return CellRevealOutcome.UNKNOWN;
+        if (outcome == CellRevealOutcome.NORMAL && cell instanceof NormalCell normal
+                && normal.getAdjacentDanger() == 0) {
+            floodReveal(row, col, player);
+        }
+        return outcome;
     }
 
     /**
@@ -128,9 +109,8 @@ public class Board<T extends Cell> {
 
                 // Only auto-reveal normal cells (never mines, traps, or bonuses)
                 if (neighbour instanceof NormalCell normal) {
-                    neighbour.reveal();
+                    neighbour.reveal(player, this);
                     revealedSafeCells++;
-                    player.addScore(1);
                     if (normal.getAdjacentDanger() == 0) {
                         queue.add(new int[]{nr, nc});
                     }
@@ -163,9 +143,8 @@ public class Board<T extends Cell> {
         for (NormalCell nc : candidates) {
             if (revealed >= count) break;
             if (!nc.isRevealed()) {
-                nc.reveal();
+                nc.reveal(player, this);
                 revealedSafeCells++;
-                player.addScore(1);
                 revealed++;
             }
         }

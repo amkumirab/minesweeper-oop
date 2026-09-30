@@ -1,6 +1,8 @@
 package minesweeper.model.cell;
 
 import minesweeper.interfaces.Explodable;
+import minesweeper.model.Board;
+import minesweeper.model.Board.CellRevealOutcome;
 import minesweeper.model.Player;
 
 /**
@@ -24,9 +26,9 @@ public class MineCell extends Cell implements Explodable {
     // ── Cell hook ────────────────────────────────────────────────────────────
 
     @Override
-    protected void onReveal() {
-        // Explosion is handled by the GameEngine after reveal() returns,
-        // so the engine can decide whether lives absorb it or it ends the game.
+    protected CellRevealOutcome onReveal(Player player, Board<? extends Cell> board) {
+        explode(player);
+        return CellRevealOutcome.MINE;
     }
 
     // ── Explodable ───────────────────────────────────────────────────────────

@@ -21,8 +21,8 @@ import java.util.*;
  * Composition: GameEngine owns Board, Player, GameSettings, and GameTimer.
  * It does NOT extend any of them — it coordinates them.
  *
- * Polymorphism: uses Board.CellRevealOutcome (enum) to dispatch post-reveal logic
- * without instanceof chains in the main flow.
+ * Cell subclasses apply reveal effects polymorphically; the engine handles
+ * game-ending events and presents the board's typed outcomes to the UI.
  */
 public class GameEngine {
 
@@ -88,7 +88,14 @@ public class GameEngine {
         // Validate before generating the board or consuming a pending debuff.
         Cell requestedCell = board.getCell(row, col);
 
-        if (state == GameState.NOT_STARTED && requestedCell.isFlagged()) {
+        assertGameInProgress();
+        checkTimer();
+
+        if (requestedCell.isRevealed()) {
+            return new RevealResult(RevealResult.Outcome.ALREADY_REVEALED, row, col,
+                    "That cell is already revealed.");
+        }
+        if (requestedCell.isFlagged()) {
             return new RevealResult(RevealResult.Outcome.FLAGGED, row, col,
                     "Cell is flagged. Unflag it first (use 'flag "
                             + (row + 1) + " " + (col + 1) + "').");
@@ -100,9 +107,6 @@ public class GameEngine {
             state = GameState.IN_PROGRESS;
             if (timer != null) timer.start();
         }
-
-        assertGameInProgress();
-        checkTimer();
 
         // ── FREEZE debuff: skip this reveal, auto-reveal a safe cell instead ─
         if (player.hasDebuff("FREEZE")) {
@@ -138,9 +142,8 @@ public class GameEngine {
             case BONUS -> {
                 player.recordMove(row, col);
                 checkWin();
-                Cell bc = board.getCell(row, col);
                 yield new RevealResult(RevealResult.Outcome.BONUS, row, col,
-                        "🎁 Bonus! " + ((BonusCell) bc).getRewardDescription());
+                        "🎁 Bonus! " + board.getCell(row, col).getRevealDescription());
             }
 
             default -> {   // NORMAL / UNKNOWN
@@ -205,10 +208,7 @@ public class GameEngine {
             throw new GameOverException(false);
         }
 
-        Cell cell = board.getCell(row, col);
-        String effectDesc = (cell instanceof TrapCell tc)
-                ? tc.getEffect().getDescription()
-                : "Unknown trap effect";
+        String effectDesc = board.getCell(row, col).getRevealDescription();
 
         return new RevealResult(RevealResult.Outcome.TRAP, row, col,
                 "🪤 Trap! " + effectDesc

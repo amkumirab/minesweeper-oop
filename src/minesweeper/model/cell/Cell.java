@@ -3,6 +3,9 @@ package minesweeper.model.cell;
 import minesweeper.exceptions.CellAlreadyRevealedException;
 import minesweeper.interfaces.Flaggable;
 import minesweeper.interfaces.Revealable;
+import minesweeper.model.Board;
+import minesweeper.model.Board.CellRevealOutcome;
+import minesweeper.model.Player;
 
 /**
  * Abstract base class for every cell on the board.
@@ -33,8 +36,8 @@ public abstract class Cell implements Revealable, Flaggable {
     // ── Revealable ───────────────────────────────────────────────────────────
 
     /**
-     * Template-method pattern: validates the pre-condition, then delegates
-     * to {@link #onReveal()} for type-specific behaviour.
+     * Marks the cell as revealed without applying gameplay effects.
+     * Use {@link #reveal(Player, Board)} for player actions.
      */
     @Override
     public final void reveal() {
@@ -42,17 +45,24 @@ public abstract class Cell implements Revealable, Flaggable {
             throw new CellAlreadyRevealedException(row, col);
         }
         revealed = true;
-        onReveal();   // hook for subclasses
     }
 
     /**
-     * Called by {@link #reveal()} after the cell is marked as revealed.
-     * Subclasses override this to perform their specific reveal logic
-     * (e.g., MineCell arms an explosion, BonusCell notes the collection).
-     *
-     * Demonstrates <b>overriding polymorphism</b>.
+     * Template method: protects revealed and flagged cells, then applies
+     * the subclass's effect exactly once. The board tracks the returned outcome.
      */
-    protected abstract void onReveal();
+    public final CellRevealOutcome reveal(Player player, Board<? extends Cell> board) {
+        if (revealed) return CellRevealOutcome.ALREADY_REVEALED;
+        if (flagged) return CellRevealOutcome.FLAGGED;
+        reveal();
+        return onReveal(player, board);
+    }
+
+    /** Applies this cell's effect and returns NORMAL, MINE, TRAP, or BONUS. */
+    protected abstract CellRevealOutcome onReveal(Player player, Board<? extends Cell> board);
+
+    /** Description used by the engine without knowing the concrete cell class. */
+    public String getRevealDescription() { return "Cell revealed."; }
 
     @Override
     public boolean isRevealed() { return revealed; }

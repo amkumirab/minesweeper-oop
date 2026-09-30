@@ -1,6 +1,8 @@
 package minesweeper.model.cell;
 
 import minesweeper.interfaces.Explodable;
+import minesweeper.model.Board;
+import minesweeper.model.Board.CellRevealOutcome;
 import minesweeper.model.Player;
 
 /**
@@ -63,9 +65,13 @@ public class TrapCell extends Cell implements Explodable {
     // ── Cell hook ────────────────────────────────────────────────────────────
 
     @Override
-    protected void onReveal() {
-        // Trap effect applied by GameEngine after reveal() returns.
+    protected CellRevealOutcome onReveal(Player player, Board<? extends Cell> board) {
+        explode(player);
+        return CellRevealOutcome.TRAP;
     }
+
+    @Override
+    public String getRevealDescription() { return effect.getDescription(); }
 
     // ── Explodable ───────────────────────────────────────────────────────────
 

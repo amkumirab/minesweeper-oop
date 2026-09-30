@@ -2,6 +2,7 @@ package minesweeper.model.cell;
 
 import minesweeper.interfaces.Rewardable;
 import minesweeper.model.Board;
+import minesweeper.model.Board.CellRevealOutcome;
 import minesweeper.model.BonusType;
 import minesweeper.model.Player;
 
@@ -10,7 +11,7 @@ import minesweeper.model.Player;
  *
  * Inheritance  : extends Cell.
  * Subtyping    : implements Rewardable (multityping).
- * Polymorphism : onReveal() marks collection; applyReward() grants the bonus.
+ * Polymorphism : onReveal() delegates to applyReward() and returns the bonus outcome.
  * Composition  : holds a BonusType value that determines what reward to grant.
  */
 public class BonusCell extends Cell implements Rewardable {
@@ -34,10 +35,13 @@ public class BonusCell extends Cell implements Rewardable {
     // ── Cell hook ────────────────────────────────────────────────────────────
 
     @Override
-    protected void onReveal() {
-        // Reward is applied by the GameEngine after reveal() to keep
-        // the Cell free of board / engine references at this stage.
+    protected CellRevealOutcome onReveal(Player player, Board<? extends Cell> board) {
+        applyReward(player, board);
+        return CellRevealOutcome.BONUS;
     }
+
+    @Override
+    public String getRevealDescription() { return getRewardDescription(); }
 
     // ── Rewardable ───────────────────────────────────────────────────────────
 
