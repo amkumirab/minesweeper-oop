@@ -75,18 +75,14 @@ public class Player {
     public void recordMove(int row, int col) {
         moveHistory.push(new int[]{row, col});
         if (moveHistory.size() > MAX_HISTORY) {
-            // trim oldest entry — rebuild without the last element
-            List<int[]> snapshot = new ArrayList<>(moveHistory);
-            moveHistory.clear();
-            for (int i = 0; i < snapshot.size() - 1; i++) {
-                moveHistory.addLast(snapshot.get(i));
-            }
+            moveHistory.removeLast();
         }
     }
 
-    /** Returns the most recent move [row, col], or null if no history. */
+    /** Returns a copy of the most recent move [row, col], or null if no history. */
     public int[] peekLastMove() {
-        return moveHistory.isEmpty() ? null : moveHistory.peek();
+        int[] lastMove = moveHistory.peek();
+        return lastMove == null ? null : lastMove.clone();
     }
 
     // ── getters ──────────────────────────────────────────────────────────────

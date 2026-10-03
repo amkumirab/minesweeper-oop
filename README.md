@@ -52,8 +52,9 @@ bash test.sh
 ```
 
 The tests cover cell effects, repeated and flagged reveals, flood-fill safety,
-first-click generation, Freeze handling, and a custom reward cell. A failing
-test makes the command exit with a nonzero status. Compiled files stay in `out/`.
+first-click generation, Freeze handling, a custom reward cell, and player move
+history (defensive copies, newest-first order, and the twenty-move limit).
+A failing test makes the command exit with a nonzero status. Compiled files stay in `out/`.
 
 ---
 
@@ -180,3 +181,4 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 4. **Board generation is deferred** to the first click — guaranteeing a safe 3×3 zone around it, matching real Minesweeper behaviour.
 5. **`GameOverException` is a checked exception** — callers (the UI) are *forced* by the compiler to handle game-ending events, preventing them from being silently ignored.
 6. **Freeze applies to valid reveals** — out-of-bounds, flagged, and already-revealed targets leave the pending Freeze effect untouched.
+7. **Move history stays encapsulated** — `Player.peekLastMove()` returns a defensive copy, so changing the returned coordinates cannot change the player's stored move. The history keeps the newest twenty moves; `Deque.removeLast()` removes the oldest directly without rebuilding the collection or using an extra loop.
