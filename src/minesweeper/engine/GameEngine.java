@@ -85,11 +85,11 @@ public class GameEngine {
     public RevealResult revealCell(int row, int col)
             throws InvalidCoordinateException, GameOverException {
 
+        assertGameInProgress();
+        checkTimeLimit();
+
         // Validate before generating the board or consuming a pending debuff.
         Cell requestedCell = board.getCell(row, col);
-
-        assertGameInProgress();
-        checkTimer();
 
         if (requestedCell.isRevealed()) {
             return new RevealResult(RevealResult.Outcome.ALREADY_REVEALED, row, col,
@@ -159,9 +159,12 @@ public class GameEngine {
      * Toggles a flag on/off at (row, col).
      *
      * @throws InvalidCoordinateException if out of bounds
+     * @throws GameOverException if the time limit has expired
      */
-    public void toggleFlag(int row, int col) throws InvalidCoordinateException {
+    public void toggleFlag(int row, int col)
+            throws InvalidCoordinateException, GameOverException {
         if (state != GameState.IN_PROGRESS && state != GameState.NOT_STARTED) return;
+        checkTimeLimit();
         board.toggleFlag(row, col);
     }
 
@@ -170,16 +173,29 @@ public class GameEngine {
      * Effect: reveals one random safe cell on behalf of the player.
      *
      * @return true if undo was available and consumed, false otherwise
-     * @throws GameOverException if the safe reveal triggers a win
+     * @throws GameOverException if time expires or the safe reveal triggers a win
      */
     public boolean useUndo() throws GameOverException {
         assertGameInProgress();
-        checkTimer();
+        checkTimeLimit();
         if (!player.isUndoAvailable()) return false;
         player.consumeUndo();
         board.revealRandomSafeCells(1, player);
         checkWin();
         return true;
+    }
+
+    /**
+     * Ends an active game when its time limit expires, without performing a move.
+     * UIs may poll this method. Unstarted and finished games are left unchanged.
+     *
+     * @throws GameOverException once, when this check ends the game in a loss
+     */
+    public void checkTimeLimit() throws GameOverException {
+        if (state == GameState.IN_PROGRESS && timer.isTimeUp()) {
+            endGame(false);
+            throw new GameOverException(false);
+        }
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
@@ -245,13 +261,6 @@ public class GameEngine {
     private void assertGameInProgress() throws GameOverException {
         if (state == GameState.WON)  throw new GameOverException(true);
         if (state == GameState.LOST) throw new GameOverException(false);
-    }
-
-    private void checkTimer() throws GameOverException {
-        if (timer != null && timer.isTimeUp()) {
-            endGame(false);
-            throw new GameOverException(false);
-        }
     }
 
     // ── board generation ─────────────────────────────────────────────────────

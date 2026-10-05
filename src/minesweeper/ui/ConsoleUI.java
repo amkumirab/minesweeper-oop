@@ -167,6 +167,7 @@ public class ConsoleUI {
             System.out.print(BOLD + "\n> " + RESET);
             String raw = scanner.nextLine().trim();
 
+            if (checkTimeLimit()) return offerReplay();
             if (raw.isEmpty()) continue;
 
             String lower = raw.toLowerCase();
@@ -200,7 +201,9 @@ public class ConsoleUI {
                     case "reveal", "r", "open", "o" -> {
                         if (handleReveal(row, col)) return offerReplay();
                     }
-                    case "flag",   "f"               -> handleFlag(row, col);
+                    case "flag", "f" -> {
+                        if (handleFlag(row, col)) return offerReplay();
+                    }
                     default -> System.out.println(YELLOW + "⚠ Unknown command '" + cmd
                             + "'. Type 'help' for instructions." + RESET);
                 }
@@ -212,20 +215,23 @@ public class ConsoleUI {
 
     // ── action handlers ───────────────────────────────────────────────────────
 
+    private boolean checkTimeLimit() {
+        try {
+            engine.checkTimeLimit();
+        } catch (GameOverException e) {
+            printGameOver(e);
+            return true;
+        }
+        return false;
+    }
+
     private boolean handleReveal(int row, int col) {
         try {
             RevealResult result = engine.revealCell(row, col);
             printResultMessage(result);
             printBoard();
         } catch (GameOverException e) {
-            printBoard();
-            if (e.isWon()) {
-                System.out.println(GREEN + BOLD + "\n🏆  " + e.getMessage() + RESET);
-                printWinSummary();
-            } else {
-                System.out.println(RED + BOLD + "\n💥  " + e.getMessage() + RESET);
-                printLossSummary();
-            }
+            printGameOver(e);
             return true;
         } catch (InvalidCoordinateException e) {
             System.out.println(YELLOW + "⚠ " + e.getMessage() + RESET);
@@ -235,14 +241,18 @@ public class ConsoleUI {
         return false;
     }
 
-    private void handleFlag(int row, int col) {
+    private boolean handleFlag(int row, int col) {
         try {
             engine.toggleFlag(row, col);
             System.out.println("🚩 Flag toggled at (" + (row + 1) + ", " + (col + 1) + ").");
             printBoard();
+        } catch (GameOverException e) {
+            printGameOver(e);
+            return true;
         } catch (InvalidCoordinateException e) {
             System.out.println(YELLOW + "⚠ " + e.getMessage() + RESET);
         }
+        return false;
     }
 
     private boolean handleUndo() {
@@ -255,17 +265,21 @@ public class ConsoleUI {
                 System.out.println(YELLOW + "⚠ No undo token available. Collect a 🎁 Bonus to get one." + RESET);
             }
         } catch (GameOverException e) {
-            printBoard();
-            if (e.isWon()) {
-                System.out.println(GREEN + BOLD + "\n🏆  " + e.getMessage() + RESET);
-                printWinSummary();
-            } else {
-                System.out.println(RED + BOLD + "\n💥  " + e.getMessage() + RESET);
-                printLossSummary();
-            }
+            printGameOver(e);
             return true;
         }
         return false;
+    }
+
+    private void printGameOver(GameOverException result) {
+        printBoard();
+        if (result.isWon()) {
+            System.out.println(GREEN + BOLD + "\n🏆  " + result.getMessage() + RESET);
+            printWinSummary();
+        } else {
+            System.out.println(RED + BOLD + "\n💥  " + result.getMessage() + RESET);
+            printLossSummary();
+        }
     }
 
     // ── board rendering ───────────────────────────────────────────────────────

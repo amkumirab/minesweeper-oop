@@ -220,6 +220,8 @@ public class SwingUI extends JFrame {
     private void handleFlag(int row, int col) {
         try {
             engine.toggleFlag(row, col);
+        } catch (GameOverException e) {
+            handleGameOver(e.isWon());
         } catch (InvalidCoordinateException e) {
             // ignore
         }
@@ -283,21 +285,14 @@ public class SwingUI extends JFrame {
     }
 
     private void updateTimerDisplay() {
+        try {
+            engine.checkTimeLimit();
+        } catch (GameOverException e) {
+            handleGameOver(e.isWon());
+        }
+
         GameTimer timer = engine.getTimer();
-        if (timer != null && timer.isRunning()) {
-            if (settings.isTimeLimitEnabled()) {
-                timerLabel.setText(timer.getFormattedRemaining());
-                // Check time up
-                if (timer.isTimeUp()) {
-                    try {
-                        engine.revealCell(0, 0); // triggers timer check
-                    } catch (Exception ignored) {}
-                    handleGameOver(false);
-                }
-            } else {
-                timerLabel.setText(timer.getFormattedElapsed());
-            }
-        } else if (timer != null) {
+        if (timer != null) {
             timerLabel.setText(settings.isTimeLimitEnabled()
                     ? timer.getFormattedRemaining()
                     : timer.getFormattedElapsed());

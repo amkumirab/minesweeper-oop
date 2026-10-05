@@ -54,7 +54,9 @@ bash test.sh
 The tests cover cell effects, repeated and flagged reveals, flood-fill safety,
 first-click generation, Freeze handling, a custom reward cell, and player move
 history (defensive copies, newest-first order, and the twenty-move limit).
-A failing test makes the command exit with a nonzero status. Compiled files stay in `out/`.
+They also cover time-limit polling, action rejection after timeout, and console
+timeout handling. A failing test makes the command exit with a nonzero status.
+Compiled files stay in `out/`.
 
 ---
 
@@ -182,3 +184,9 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 5. **`GameOverException` is a checked exception** — callers (the UI) are *forced* by the compiler to handle game-ending events, preventing them from being silently ignored.
 6. **Freeze applies to valid reveals** — out-of-bounds, flagged, and already-revealed targets leave the pending Freeze effect untouched.
 7. **Move history stays encapsulated** — `Player.peekLastMove()` returns a defensive copy, so changing the returned coordinates cannot change the player's stored move. The history keeps the newest twenty moves; `Deque.removeLast()` removes the oldest directly without rebuilding the collection or using an extra loop.
+8. **The engine owns time-limit enforcement** — `GameEngine.checkTimeLimit()` ends an expired active game without performing a move. Reveal, flag, and undo actions check it before changing gameplay state. Swing polls it on timer ticks; the console checks it after reading each input line, including help and blank input. The console waits for input rather than running a background thread. Unstarted and finished games are unchanged by polling.
+
+`toggleFlag(int, int)` can throw `GameOverException` when time expires, in addition
+to `InvalidCoordinateException` for invalid coordinates. Both interfaces handle
+that game-ending event. In an expired game, timeout takes precedence over
+coordinate validation, so invalid input cannot postpone the loss.
