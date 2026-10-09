@@ -3,6 +3,7 @@ package minesweeper;
 import java.util.List;
 import minesweeper.engine.*;
 import minesweeper.exceptions.*;
+import minesweeper.interfaces.Explodable;
 import minesweeper.interfaces.Rewardable;
 import minesweeper.model.*;
 import minesweeper.model.Board.CellRevealOutcome;
@@ -24,6 +25,10 @@ public final class RevealTests {
                 new TestCase("Cell reference overload matches coordinate overload", RevealTests::cellOverload),
                 new TestCase("Custom reward cells work without board changes", RevealTests::customReward),
                 new TestCase("Custom rewards produce engine messages without casts", RevealTests::customRewardMessage),
+                new TestCase("Adjacent counts include custom dangerous cells", RevealTests::customDangerCounts),
+                new TestCase("Custom danger prevents an empty-cell flood", RevealTests::customDangerFlood),
+                new TestCase("Loss reveals all dangerous cell types without triggering effects", RevealTests::dangerReveal),
+                new TestCase("Fatal custom danger reveals other dangerous cells", RevealTests::customDangerLoss),
                 new TestCase("Invalid first clicks do not start the game", RevealTests::invalidFirstClick),
                 new TestCase("Flagged first clicks do not start the game", RevealTests::flaggedFirstClick),
                 new TestCase("First click generation preserves existing flags", RevealTests::firstClickFlags),
@@ -166,6 +171,89 @@ public final class RevealTests {
         require(board.isComplete(), "Custom safe cells must count toward victory");
         equal(CellRevealOutcome.ALREADY_REVEALED, board.reveal(0, 0, player));
         equal(2, player.getLives());
+    }
+
+    private static void customDangerCounts() throws Exception {
+        Board<Cell> board = new Board<>(2, 2);
+        NormalCell normal = new NormalCell(0, 0);
+        board.setCell(0, 0, normal);
+        board.setCell(0, 1, new MineCell(0, 1));
+        board.setCell(1, 0, new TrapCell(1, 0, TrapCell.TrapEffect.LOSE_LIFE));
+        board.setCell(1, 1, new CustomDangerCell(1, 1));
+        board.calculateAdjacentCounts();
+        equal(1, normal.getAdjacentMines());
+        equal(1, normal.getAdjacentTraps());
+        equal(3, normal.getAdjacentDanger());
+        equal("3", normal.getRevealedSymbol());
+
+        board.calculateAdjacentCounts();
+        equal(3, normal.getAdjacentDanger());
+        board.setCell(1, 1, new BonusCell(1, 1, BonusType.EXTRA_LIFE));
+        board.calculateAdjacentCounts();
+        equal(2, normal.getAdjacentDanger());
+    }
+
+    private static void customDangerFlood() throws Exception {
+        NormalCell first = new NormalCell(0, 0);
+        NormalCell target = new NormalCell(0, 1);
+        CustomDangerCell danger = new CustomDangerCell(0, 2);
+        Board<Cell> board = board(first, target, danger);
+        board.calculateAdjacentCounts();
+        Player player = new Player("Player", 2);
+        board.reveal(0, 1, player);
+        equal(1, target.getAdjacentDanger());
+        require(!first.isRevealed(), "A numbered cell must not start a flood");
+        require(!danger.isRevealed() && !danger.hasTriggered(), "Adjacent danger must remain hidden");
+        equal(1, board.getRevealedSafeCells());
+        equal(1, player.getScore());
+        equal(2, player.getLives());
+    }
+
+    private static void dangerReveal() throws Exception {
+        MineCell mine = new MineCell(0, 0);
+        TrapCell trap = new TrapCell(0, 1, TrapCell.TrapEffect.FREEZE_NEXT_MOVE);
+        CustomDangerCell flagged = new CustomDangerCell(0, 2);
+        flagged.flag();
+        CustomDangerCell revealed = new CustomDangerCell(0, 3);
+        revealed.forceReveal();
+        NormalCell normal = new NormalCell(0, 4);
+        BonusCell bonus = new BonusCell(0, 5, BonusType.EXTRA_LIFE);
+        Board<Cell> board = board(mine, trap, flagged, revealed, normal, bonus);
+        board.revealAllDangerCells();
+        board.revealAllDangerCells();
+        require(mine.isRevealed() && trap.isRevealed() && flagged.isRevealed() && revealed.isRevealed(),
+                "All Explodable cells must be revealed, including flagged cells");
+        require(!mine.hasTriggered() && !trap.hasTriggered() && !flagged.hasTriggered() && !revealed.hasTriggered(),
+                "Showing dangerous cells must not apply their effects");
+        require(!normal.isRevealed() && !bonus.isRevealed() && !bonus.isCollected(),
+                "Loss must leave hidden safe and reward cells untouched");
+        equal(0, board.getRevealedSafeCells());
+    }
+
+    private static void customDangerLoss() throws Exception {
+        GameEngine engine = startedEngine();
+        Cell target = engine.getBoard().getAllCells().stream()
+                .filter(cell -> cell instanceof MineCell).findFirst().orElseThrow();
+        CustomDangerCell danger = new CustomDangerCell(target.getRow(), target.getCol());
+        engine.getBoard().setCell(target.getRow(), target.getCol(), danger);
+        Cell other = engine.getBoard().getAllCells().stream()
+                .filter(cell -> cell instanceof MineCell).findFirst().orElseThrow();
+        CustomDangerCell flagged = new CustomDangerCell(other.getRow(), other.getCol());
+        flagged.flag();
+        engine.getBoard().setCell(other.getRow(), other.getCol(), flagged);
+        try {
+            engine.revealCell(danger.getRow(), danger.getCol());
+            throw new AssertionError("Expected a losing GameOverException");
+        } catch (GameOverException result) {
+            require(!result.isWon(), "Fatal custom danger must lose the game");
+            equal(GameState.LOST, engine.getState());
+            equal(0, engine.getPlayer().getLives());
+            equal(1, engine.getPlayer().getScore());
+            equal(1, engine.getBoard().getRevealedSafeCells());
+            require(danger.hasTriggered(), "The clicked danger must apply its effect");
+            require(flagged.isRevealed() && !flagged.hasTriggered(), "Other danger must only be shown");
+            require(!engine.getTimer().isRunning(), "Loss must stop the timer");
+        }
     }
 
     private static GameEngine startedEngine() throws Exception {
@@ -311,6 +399,33 @@ public final class RevealTests {
     @FunctionalInterface
     private interface TestBody {
         void run() throws Exception;
+    }
+
+    private static final class CustomDangerCell extends Cell implements Explodable {
+        private boolean triggered;
+
+        CustomDangerCell(int row, int col) { super(row, col); }
+
+        @Override
+        protected CellRevealOutcome onReveal(Player player, Board<? extends Cell> board) {
+            explode(player);
+            return CellRevealOutcome.MINE;
+        }
+
+        @Override
+        public void explode(Player player) {
+            triggered = true;
+            player.loseLife();
+        }
+
+        @Override
+        public boolean hasTriggered() { return triggered; }
+
+        @Override
+        public String getRevealedSymbol() { return "D"; }
+
+        @Override
+        public String getType() { return "DANGER"; }
     }
 
     private static final class CustomRewardCell extends Cell implements Rewardable {

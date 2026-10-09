@@ -1,6 +1,7 @@
 package minesweeper.model;
 
 import minesweeper.exceptions.InvalidCoordinateException;
+import minesweeper.interfaces.Explodable;
 import minesweeper.model.cell.*;
 
 import java.util.*;
@@ -182,21 +183,23 @@ public class Board<T extends Cell> {
     }
 
     /**
-     * Scans every NormalCell and writes its adjacent mine/trap counts.
+     * Counts neighbouring mines, traps, and other Explodable cells for each NormalCell.
      * Called once after all cells are placed.
      */
     public void calculateAdjacentCounts() {
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 if (!(grid[r][c] instanceof NormalCell normal)) continue;
-                int mines = 0, traps = 0;
+                int mines = 0, traps = 0, otherDanger = 0;
                 for (int[] nb : getNeighbourCoords(r, c)) {
                     Cell nbCell = grid[nb[0]][nb[1]];
                     if (nbCell instanceof MineCell) mines++;
                     else if (nbCell instanceof TrapCell) traps++;
+                    else if (nbCell instanceof Explodable) otherDanger++;
                 }
                 normal.setAdjacentMines(mines);
                 normal.setAdjacentTraps(traps);
+                normal.setAdjacentOtherDanger(otherDanger);
             }
         }
     }
@@ -215,14 +218,13 @@ public class Board<T extends Cell> {
     // ── game-over reveal ─────────────────────────────────────────────────────
 
     /**
-     * Force-reveals all mines and traps (called on game loss).
+     * Shows all Explodable cells on game loss without triggering their effects.
      */
     public void revealAllDangerCells() {
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 Cell cell = grid[r][c];
-                if ((cell instanceof MineCell || cell instanceof TrapCell)
-                        && !cell.isRevealed()) {
+                if (cell instanceof Explodable && !cell.isRevealed()) {
                     cell.forceReveal();
                 }
             }

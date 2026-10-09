@@ -14,12 +14,14 @@ public class NormalCell extends Cell {
 
     private int adjacentMines;   // count of neighbouring MineCell objects
     private int adjacentTraps;   // count of neighbouring TrapCell objects
+    private int adjacentOtherDanger; // other neighbouring Explodable cells
 
     // ── constructor ──────────────────────────────────────────────────────────
     public NormalCell(int row, int col) {
         super(row, col);
         this.adjacentMines = 0;
         this.adjacentTraps = 0;
+        this.adjacentOtherDanger = 0;
     }
 
     // ── Cell hooks ───────────────────────────────────────────────────────────
@@ -38,10 +40,13 @@ public class NormalCell extends Cell {
     public void setAdjacentMines(int count) { this.adjacentMines = count; }
     public void setAdjacentTraps(int count) { this.adjacentTraps = count; }
 
+    /** Keeps custom dangerous cells separate from the mine and trap counts. */
+    public void setAdjacentOtherDanger(int count) { this.adjacentOtherDanger = count; }
+
     /**
-     * Combined danger score: mines + traps shown to the player.
+     * Total neighbouring danger: mines, traps, and any other Explodable cells.
      */
-    public int getAdjacentDanger() { return adjacentMines + adjacentTraps; }
+    public int getAdjacentDanger() { return adjacentMines + adjacentTraps + adjacentOtherDanger; }
 
     // ── display ──────────────────────────────────────────────────────────────
 
