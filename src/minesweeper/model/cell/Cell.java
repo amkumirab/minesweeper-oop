@@ -69,9 +69,13 @@ public abstract class Cell implements Revealable, Flaggable {
 
     /**
      * Force-reveals this cell without the already-revealed guard.
+     * Clears any flag so the revealed cell is displayed instead of its old flag.
      * Used internally (e.g., game-over "show all mines") — not for player actions.
      */
-    public void forceReveal() { this.revealed = true; }
+    public void forceReveal() {
+        this.flagged = false;
+        this.revealed = true;
+    }
 
     // ── Flaggable ────────────────────────────────────────────────────────────
 

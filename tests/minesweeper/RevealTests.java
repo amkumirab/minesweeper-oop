@@ -1,6 +1,7 @@
 package minesweeper;
 
 import java.util.List;
+import javax.swing.SwingUtilities;
 import minesweeper.engine.*;
 import minesweeper.exceptions.*;
 import minesweeper.interfaces.Explodable;
@@ -8,6 +9,7 @@ import minesweeper.interfaces.Rewardable;
 import minesweeper.model.*;
 import minesweeper.model.Board.CellRevealOutcome;
 import minesweeper.model.cell.*;
+import minesweeper.ui.CellButton;
 
 /** Dependency-free regression tests for board and engine reveal behavior. */
 public final class RevealTests {
@@ -21,6 +23,8 @@ public final class RevealTests {
                 new TestCase("Each bonus applies its own reward", RevealTests::bonusEffects),
                 new TestCase("Repeated reveals have no effects", RevealTests::repeatedReveal),
                 new TestCase("Flagged cells are protected", RevealTests::flaggedReveal),
+                new TestCase("Force reveals clear flags without triggering effects", RevealTests::forceRevealFlags),
+                new TestCase("Force-revealed mines display as disabled mines in Swing", RevealTests::forceRevealDisplay),
                 new TestCase("Flood fill preserves special and flagged cells", RevealTests::floodFill),
                 new TestCase("Cell reference overload matches coordinate overload", RevealTests::cellOverload),
                 new TestCase("Custom reward cells work without board changes", RevealTests::customReward),
@@ -154,6 +158,45 @@ public final class RevealTests {
                 "Flood fill must protect flags and special cells");
     }
 
+    private static void forceRevealFlags() throws Exception {
+        MineCell mine = new MineCell(0, 0);
+        mine.flag();
+        NormalCell hidden = new NormalCell(0, 1);
+        hidden.flag();
+        Board<Cell> board = board(mine, hidden);
+        equal(2, board.getFlaggedCount());
+
+        mine.forceReveal();
+        require(mine.isRevealed() && !mine.isFlagged(), "A force-revealed cell must not keep its flag");
+        require(!mine.hasTriggered(), "Force reveal must not trigger the mine");
+        equal("*", mine.toString());
+        equal(1, board.getFlaggedCount());
+        equal(0, board.getRevealedSafeCells());
+        require(hidden.isFlagged() && !hidden.isRevealed(), "Other cells must remain unchanged");
+
+        mine.forceReveal();
+        mine.flag();
+        require(mine.isRevealed() && !mine.isFlagged(), "Repeated force reveal and flag attempts must preserve revealed state");
+        require(!mine.hasTriggered(), "Repeated force reveal must remain effect-free");
+    }
+
+    private static void forceRevealDisplay() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MineCell mine = new MineCell(0, 0);
+            mine.flag();
+            CellButton button = new CellButton(0, 0);
+            button.updateFromCell(mine);
+            equal("\uD83D\uDEA9", button.getText());
+            require(button.isEnabled(), "A hidden flagged cell must remain enabled");
+
+            mine.forceReveal();
+            button.updateFromCell(mine);
+            equal("\uD83D\uDCA3", button.getText());
+            require(!button.isEnabled(), "A revealed mine button must be disabled");
+            require(!mine.hasTriggered(), "Rendering must not trigger the mine");
+        });
+    }
+
     private static void cellOverload() throws Exception {
         NormalCell cell = numbered(0);
         Board<Cell> board = board(cell);
@@ -223,6 +266,7 @@ public final class RevealTests {
         board.revealAllDangerCells();
         require(mine.isRevealed() && trap.isRevealed() && flagged.isRevealed() && revealed.isRevealed(),
                 "All Explodable cells must be revealed, including flagged cells");
+        require(!flagged.isFlagged(), "Danger shown on loss must not retain a flag");
         require(!mine.hasTriggered() && !trap.hasTriggered() && !flagged.hasTriggered() && !revealed.hasTriggered(),
                 "Showing dangerous cells must not apply their effects");
         require(!normal.isRevealed() && !bonus.isRevealed() && !bonus.isCollected(),
@@ -252,6 +296,7 @@ public final class RevealTests {
             equal(1, engine.getBoard().getRevealedSafeCells());
             require(danger.hasTriggered(), "The clicked danger must apply its effect");
             require(flagged.isRevealed() && !flagged.hasTriggered(), "Other danger must only be shown");
+            require(!flagged.isFlagged(), "Loss must clear the shown danger's flag");
             require(!engine.getTimer().isRunning(), "Loss must stop the timer");
         }
     }

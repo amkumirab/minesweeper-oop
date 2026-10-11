@@ -57,6 +57,7 @@ history (defensive copies, newest-first order, and the twenty-move limit).
 They also cover time-limit polling, action rejection after timeout, and console
 timeout handling. Custom dangerous cells are tested for neighbour counts,
 flood-fill boundaries, and loss-time reveals without triggering their effects.
+Force-reveal tests verify flag clearing and correct mine rendering in Swing.
 A failing test makes the command exit with a nonzero status.
 Compiled files stay in `out/`.
 
@@ -188,6 +189,7 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 7. **Move history stays encapsulated** — `Player.peekLastMove()` returns a defensive copy, so changing the returned coordinates cannot change the player's stored move. The history keeps the newest twenty moves; `Deque.removeLast()` removes the oldest directly without rebuilding the collection or using an extra loop.
 8. **The engine owns time-limit enforcement** — `GameEngine.checkTimeLimit()` ends an expired active game without performing a move. Reveal, flag, and undo actions check it before changing gameplay state. Swing polls it on timer ticks; the console checks it after reading each input line, including help and blank input. The console waits for input rather than running a background thread. Unstarted and finished games are unchanged by polling.
 9. **`Explodable` identifies dangerous cells** — the board includes custom implementations in neighbour danger totals and reveals them on loss without calling `explode()`. Mine and trap counts retain their existing meanings; other dangerous cells contribute separately to the total. UI-specific styling still uses the built-in cell classes.
+10. **Force reveal clears the cell's flag** — `Cell.forceReveal()` shows the cell without applying gameplay effects. Clearing the flag in the model keeps text and Swing rendering consistent, including dangerous cells exposed on loss.
 
 `toggleFlag(int, int)` can throw `GameOverException` when time expires, in addition
 to `InvalidCoordinateException` for invalid coordinates. Both interfaces handle
