@@ -3,8 +3,6 @@ package minesweeper.ui;
 import minesweeper.engine.*;
 import minesweeper.exceptions.GameOverException;
 import minesweeper.exceptions.InvalidCoordinateException;
-import minesweeper.model.Board;
-import minesweeper.model.cell.Cell;
 
 import javax.swing.*;
 import java.awt.*;
@@ -248,7 +246,7 @@ public class SwingUI extends JFrame {
 
         if (won) {
             faceButton.setText("\uD83D\uDE0E"); // 😎
-            setMessage("🎉 You won! Score: " + engine.getPlayer().getScore());
+            setMessage("🎉 You won! Score: " + engine.getScore());
         } else {
             faceButton.setText("\uD83D\uDE35"); // 😵
             setMessage("💥 Game Over! Click the face to play again.");
@@ -261,15 +259,14 @@ public class SwingUI extends JFrame {
     // ── refresh ─────────────────────────────────────────────────────────────
 
     private void refreshAllCells() {
-        Board<Cell> board = engine.getBoard();
         int rows = settings.getRows();
         int cols = settings.getCols();
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                Cell cell = null;
+                CellView cell = null;
                 try {
-                    cell = board.getCell(r, c);
+                    cell = engine.getCell(r, c);
                 } catch (InvalidCoordinateException ignored) {}
                 buttons[r][c].updateFromCell(cell);
             }
@@ -279,9 +276,9 @@ public class SwingUI extends JFrame {
     private void updateHeader() {
         mineCountLabel.setText(formatMineCount());
         livesLabel.setText(formatLives());
-        scoreLabel.setText("Score: " + engine.getPlayer().getScore());
+        scoreLabel.setText("Score: " + engine.getScore());
         undoButton.setEnabled(engine.getState() == GameState.IN_PROGRESS
-                && engine.getPlayer().isUndoAvailable());
+                && engine.isUndoAvailable());
     }
 
     private void updateTimerDisplay() {
@@ -291,12 +288,9 @@ public class SwingUI extends JFrame {
             handleGameOver(e.isWon());
         }
 
-        GameTimer timer = engine.getTimer();
-        if (timer != null) {
-            timerLabel.setText(settings.isTimeLimitEnabled()
-                    ? timer.getFormattedRemaining()
-                    : timer.getFormattedElapsed());
-        }
+        timerLabel.setText(settings.isTimeLimitEnabled()
+                ? engine.getFormattedRemaining()
+                : engine.getFormattedElapsed());
     }
 
     // ── formatting helpers ──────────────────────────────────────────────────
@@ -308,7 +302,7 @@ public class SwingUI extends JFrame {
 
     private String formatLives() {
         if (!settings.isLivesEnabled()) return "";
-        int lives = engine.getPlayer().getLives();
+        int lives = engine.getLives();
         return "  " + "❤".repeat(Math.max(0, lives)) + " ";
     }
 

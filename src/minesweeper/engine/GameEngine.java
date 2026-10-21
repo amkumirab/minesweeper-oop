@@ -355,11 +355,28 @@ public class GameEngine {
 
     // ── getters ──────────────────────────────────────────────────────────────
 
-    public Board<Cell>  getBoard()    { return board;    }
-    public Player       getPlayer()   { return player;   }
+    // Package access supports engine tests without exposing live objects to the UI.
+    Board<Cell> getBoard() { return board; }
+    Player getPlayer() { return player; }
+    GameTimer getTimer() { return timer; }
+
+    /** Returns a detached, immutable snapshot of one cell. Initialise first. */
+    public CellView getCell(int row, int col) throws InvalidCoordinateException {
+        return new CellView(board.getCell(row, col));
+    }
+
+    public String getPlayerName() { return player.getName(); }
+    public int getLives() { return player.getLives(); }
+    public int getScore() { return player.getScore(); }
+    public boolean isUndoAvailable() { return player.isUndoAvailable(); }
+
+    public boolean isTimerRunning() { return timer != null && timer.isRunning(); }
+    public long getRemainingSeconds() { return timer.getRemainingSeconds(); }
+    public String getFormattedElapsed() { return timer.getFormattedElapsed(); }
+    public String getFormattedRemaining() { return timer.getFormattedRemaining(); }
+
     public GameSettings getSettings() { return settings; }
     public GameState    getState()    { return state;    }
-    public GameTimer    getTimer()    { return timer;    }
 
     /** Mines still unaccounted for (total mines minus flagged cells). */
     public int getRemainingMineCount() {

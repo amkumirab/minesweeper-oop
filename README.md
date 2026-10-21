@@ -58,6 +58,8 @@ They also cover time-limit polling, action rejection after timeout, and console
 timeout handling. Custom dangerous cells are tested for neighbour counts,
 flood-fill boundaries, and loss-time reveals without triggering their effects.
 Force-reveal tests verify flag clearing and correct mine rendering in Swing.
+Encapsulation tests check the public engine boundary, immutable cell snapshots,
+read-only player/time queries, and rendering through cell views.
 A failing test makes the command exit with a nonzero status.
 Compiled files stay in `out/`.
 
@@ -84,6 +86,7 @@ src/minesweeper/
 │       ├── TrapCell.java            ← implements Explodable (3 trap effects)
 │       └── BonusCell.java           ← implements Rewardable (3 bonus types)
 ├── engine/
+│   ├── CellView.java                ← immutable cell display snapshot
 │   ├── GameSettings.java            ← immutable config + Builder pattern
 │   ├── GameState.java               ← enum: NOT_STARTED → IN_PROGRESS → WON/LOST
 │   ├── GameTimer.java               ← elapsed time + countdown
@@ -109,8 +112,8 @@ src/minesweeper/
 
 | Concept | Where | Purpose |
 |---|---|---|
-| **Encapsulation** | `Cell`, `Player`, `Board`, `GameSettings` | All state is `private`; mutated only through controlled methods. `GameSettings` is fully immutable. |
-| **Abstraction** | `Cell` (abstract class) + all four interfaces | Consumers work with `Revealable` / `Explodable` etc. without knowing the concrete type. |
+| **Encapsulation** | `GameEngine`, `CellView`, `Cell`, `Player`, `Board` | Public engine queries expose immutable values, not live mutable objects. UIs perform gameplay changes through engine actions. |
+| **Abstraction** | `Cell` (abstract class) + all four interfaces | Cells share a common reveal contract; interfaces describe capabilities such as exploding, rewarding, and flagging. UIs read `CellView` instead of the implementation. |
 | **Inheritance** | `NormalCell`, `MineCell`, `TrapCell`, `BonusCell` all extend `Cell` | Common reveal guards, flag logic, and string conversion live once in the base class. |
 | **Polymorphism — Overriding** | `onReveal(Player,Board)`, `getRevealDescription()`, `getRevealedSymbol()`, `getType()` | Each subclass applies its own gameplay effect and supplies its description and display symbol. |
 | **Polymorphism — Overloading** | `Board.reveal(int,int,Player)` / `Board.reveal(T,Player)` and `Cell.reveal()` / `Cell.reveal(Player,Board)` | Reveal by coordinates or by cell reference; distinguish effect-free reveals from gameplay reveals. |
@@ -134,6 +137,27 @@ src/minesweeper/
 | **Reusability** | `Cell` can be extended into any new type. `Board<T>` can be reused for different games. `GameTimer` is completely independent. |
 | **Template Method** | `Cell.reveal(Player,Board)` is `final` and calls the abstract `onReveal(Player,Board)` hook — subclasses customise effects while sharing revealed/flagged guards. |
 | **Builder pattern** | `GameSettings.Builder` produces valid, immutable settings or throws `InvalidGameSettingsException` before a bad state can exist. |
+
+### Read-only Engine API
+
+Call `initialise()` before querying cells or formatted time. Both UIs read the
+same public API:
+
+- `getCell(row, col)` returns a new immutable `CellView`, not a live `Cell`.
+  Its private final fields contain only primitive values and strings. A saved
+  view stays unchanged; query again after an action to display the current state.
+- `getPlayerName()`, `getLives()`, `getScore()`, and `isUndoAvailable()` return
+  player information without exposing the mutable `Player`.
+- `isTimerRunning()`, `getRemainingSeconds()`, `getFormattedElapsed()`, and
+  `getFormattedRemaining()` expose time information without exposing `GameTimer`.
+- Gameplay changes go through `revealCell()`, `toggleFlag()`, and `useUndo()`.
+
+`getBoard()`, `getPlayer()`, and `getTimer()` have package-private access.
+Callers outside `minesweeper.engine` must use the queries above rather than
+mutating engine-owned objects. Engine regression tests live in that package so
+they can prepare internal scenarios; the public-boundary tests live outside it.
+The model classes remain mutable for use inside the game logic. This boundary
+prevents UI code from revealing a cell without updating the board's counters.
 
 ---
 
@@ -188,8 +212,9 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 6. **Freeze applies to valid reveals** — out-of-bounds, flagged, and already-revealed targets leave the pending Freeze effect untouched.
 7. **Move history stays encapsulated** — `Player.peekLastMove()` returns a defensive copy, so changing the returned coordinates cannot change the player's stored move. The history keeps the newest twenty moves; `Deque.removeLast()` removes the oldest directly without rebuilding the collection or using an extra loop.
 8. **The engine owns time-limit enforcement** — `GameEngine.checkTimeLimit()` ends an expired active game without performing a move. Reveal, flag, and undo actions check it before changing gameplay state. Swing polls it on timer ticks; the console checks it after reading each input line, including help and blank input. The console waits for input rather than running a background thread. Unstarted and finished games are unchanged by polling.
-9. **`Explodable` identifies dangerous cells** — the board includes custom implementations in neighbour danger totals and reveals them on loss without calling `explode()`. Mine and trap counts retain their existing meanings; other dangerous cells contribute separately to the total. UI-specific styling still uses the built-in cell classes.
+9. **`Explodable` identifies dangerous cells** — the board includes custom implementations in neighbour danger totals and reveals them on loss without calling `explode()`. Mine and trap counts retain their existing meanings; other dangerous cells contribute separately to the total. UI-specific styling uses the type names carried by `CellView`.
 10. **Force reveal clears the cell's flag** — `Cell.forceReveal()` shows the cell without applying gameplay effects. Clearing the flag in the model keeps text and Swing rendering consistent, including dangerous cells exposed on loss.
+11. **The engine owns mutable game state** — public queries return scalar values or detached `CellView` objects. Neither UI receives the live board, player, timer, or cells. The view stores the cell's polymorphic symbol; each UI keeps its own styling, with the symbol as the fallback for custom cell types.
 
 `toggleFlag(int, int)` can throw `GameOverException` when time expires, in addition
 to `InvalidCoordinateException` for invalid coordinates. Both interfaces handle

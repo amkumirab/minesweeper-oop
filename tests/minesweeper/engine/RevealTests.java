@@ -1,4 +1,4 @@
-package minesweeper;
+package minesweeper.engine;
 
 import java.util.List;
 import javax.swing.SwingUtilities;
@@ -10,6 +10,7 @@ import minesweeper.model.*;
 import minesweeper.model.Board.CellRevealOutcome;
 import minesweeper.model.cell.*;
 import minesweeper.ui.CellButton;
+import minesweeper.ui.ConsoleUI;
 
 /** Dependency-free regression tests for board and engine reveal behavior. */
 public final class RevealTests {
@@ -25,6 +26,7 @@ public final class RevealTests {
                 new TestCase("Flagged cells are protected", RevealTests::flaggedReveal),
                 new TestCase("Force reveals clear flags without triggering effects", RevealTests::forceRevealFlags),
                 new TestCase("Force-revealed mines display as disabled mines in Swing", RevealTests::forceRevealDisplay),
+                new TestCase("Cell views preserve Swing and console rendering", RevealTests::cellViewRendering),
                 new TestCase("Flood fill preserves special and flagged cells", RevealTests::floodFill),
                 new TestCase("Cell reference overload matches coordinate overload", RevealTests::cellOverload),
                 new TestCase("Custom reward cells work without board changes", RevealTests::customReward),
@@ -185,12 +187,12 @@ public final class RevealTests {
             MineCell mine = new MineCell(0, 0);
             mine.flag();
             CellButton button = new CellButton(0, 0);
-            button.updateFromCell(mine);
+            button.updateFromCell(new CellView(mine));
             equal("\uD83D\uDEA9", button.getText());
             require(button.isEnabled(), "A hidden flagged cell must remain enabled");
 
             mine.forceReveal();
-            button.updateFromCell(mine);
+            button.updateFromCell(new CellView(mine));
             equal("\uD83D\uDCA3", button.getText());
             require(!button.isEnabled(), "A revealed mine button must be disabled");
             require(!mine.hasTriggered(), "Rendering must not trigger the mine");
@@ -202,6 +204,32 @@ public final class RevealTests {
         Board<Cell> board = board(cell);
         equal(CellRevealOutcome.NORMAL, board.reveal(cell, new Player("Player", 1)));
         equal(1, board.getRevealedSafeCells());
+    }
+
+    private static void cellViewRendering() throws Exception {
+        NormalCell numbered = new NormalCell(0, 3);
+        numbered.setAdjacentMines(2);
+        List<Cell> cells = List.of(new MineCell(0, 0),
+                new TrapCell(0, 1, TrapCell.TrapEffect.LOSE_LIFE),
+                new BonusCell(0, 2, BonusType.EXTRA_LIFE), numbered, new CustomRewardCell(0, 4));
+        List<String> graphicalSymbols = List.of("\uD83D\uDCA3", "\uD83E\uDEE4", "\uD83C\uDF81", "2", "R");
+        ConsoleUI console = new ConsoleUI();
+        java.lang.reflect.Method styled = ConsoleUI.class.getDeclaredMethod("styledCell", CellView.class);
+        styled.setAccessible(true);
+        for (int index = 0; index < cells.size(); index++) {
+            Cell cell = cells.get(index);
+            cell.forceReveal();
+            CellView view = new CellView(cell);
+            String expectedGraphical = graphicalSymbols.get(index);
+            SwingUtilities.invokeAndWait(() -> {
+                CellButton button = new CellButton(view.getRow(), view.getCol());
+                button.updateFromCell(view);
+                equal(expectedGraphical, button.getText());
+                require(!button.isEnabled(), "Revealed cell views must be disabled");
+            });
+            String text = (String) styled.invoke(console, view);
+            equal(cell.getRevealedSymbol(), text.replaceAll("\u001B\\[[;\\d]*m", ""));
+        }
     }
 
     private static void customReward() throws Exception {

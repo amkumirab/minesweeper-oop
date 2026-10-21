@@ -1,6 +1,6 @@
 package minesweeper.ui;
 
-import minesweeper.model.cell.*;
+import minesweeper.engine.CellView;
 
 import javax.swing.*;
 import java.awt.*;
@@ -58,7 +58,7 @@ public class CellButton extends JButton {
     /**
      * Updates this button's appearance based on the cell state.
      */
-    public void updateFromCell(Cell cell) {
+    public void updateFromCell(CellView cell) {
         if (cell == null) {
             drawHidden();
             return;
@@ -96,39 +96,42 @@ public class CellButton extends JButton {
         setEnabled(true);
     }
 
-    private void drawRevealed(Cell cell) {
+    private void drawRevealed(CellView cell) {
         setBorder(BorderFactory.createLineBorder(new Color(180, 180, 180), 1));
         setFont(new Font("SansSerif", Font.BOLD, 14));
         setEnabled(false);
 
-        if (cell instanceof MineCell) {
-            setText("\uD83D\uDCA3"); // 💣
-            setFont(new Font("SansSerif", Font.PLAIN, 16));
-            setBackground(MINE_BG);
-            setDisabledIcon(null);
-
-        } else if (cell instanceof TrapCell) {
-            setText("\uD83E\uDEE4"); // 🪤  (using a visible fallback)
-            setFont(new Font("SansSerif", Font.PLAIN, 16));
-            setBackground(TRAP_BG);
-
-        } else if (cell instanceof BonusCell) {
-            setText("\uD83C\uDF81"); // 🎁
-            setFont(new Font("SansSerif", Font.PLAIN, 16));
-            setBackground(BONUS_BG);
-
-        } else if (cell instanceof NormalCell normal) {
-            int danger = normal.getAdjacentDanger();
-            setBackground(REVEALED_BG);
-            if (danger == 0) {
-                setText("");
-            } else {
-                setText(String.valueOf(danger));
-                setForeground(danger < NUMBER_COLORS.length ? NUMBER_COLORS[danger] : Color.BLACK);
+        switch (cell.getType()) {
+            case "MINE" -> {
+                setText("\uD83D\uDCA3"); // 💣
+                setFont(new Font("SansSerif", Font.PLAIN, 16));
+                setBackground(MINE_BG);
+                setDisabledIcon(null);
             }
-        } else {
-            setBackground(REVEALED_BG);
-            setText("");
+            case "TRAP" -> {
+                setText("\uD83E\uDEE4"); // 🪤
+                setFont(new Font("SansSerif", Font.PLAIN, 16));
+                setBackground(TRAP_BG);
+            }
+            case "BONUS" -> {
+                setText("\uD83C\uDF81"); // 🎁
+                setFont(new Font("SansSerif", Font.PLAIN, 16));
+                setBackground(BONUS_BG);
+            }
+            case "NORMAL" -> {
+                int danger = cell.getAdjacentDanger();
+                setBackground(REVEALED_BG);
+                if (danger == 0) {
+                    setText("");
+                } else {
+                    setText(String.valueOf(danger));
+                    setForeground(danger < NUMBER_COLORS.length ? NUMBER_COLORS[danger] : Color.BLACK);
+                }
+            }
+            default -> {
+                setBackground(REVEALED_BG);
+                setText(cell.getRevealedSymbol());
+            }
         }
     }
 }

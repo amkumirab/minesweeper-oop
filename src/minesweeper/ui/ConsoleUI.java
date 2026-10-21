@@ -2,9 +2,6 @@ package minesweeper.ui;
 
 import minesweeper.engine.*;
 import minesweeper.exceptions.*;
-import minesweeper.model.Board;
-import minesweeper.model.Player;
-import minesweeper.model.cell.*;
 
 import java.util.Scanner;
 
@@ -285,11 +282,8 @@ public class ConsoleUI {
     // ── board rendering ───────────────────────────────────────────────────────
 
     private void printBoard() {
-        Board<Cell> board    = engine.getBoard();
-        if (board == null) return;
-
-        int rows = board.getRows();
-        int cols = board.getCols();
+        int rows = engine.getSettings().getRows();
+        int cols = engine.getSettings().getCols();
 
         System.out.println();
 
@@ -310,7 +304,7 @@ public class ConsoleUI {
             System.out.printf("%3d |", r + 1);
             for (int c = 0; c < cols; c++) {
                 try {
-                    Cell cell = board.getCell(r, c);
+                    CellView cell = engine.getCell(r, c);
                     System.out.print(" " + styledCell(cell) + " ");
                 } catch (InvalidCoordinateException e) {
                     System.out.print(" ? ");
@@ -325,50 +319,47 @@ public class ConsoleUI {
         System.out.println("+");
     }
 
-    private String styledCell(Cell cell) {
+    private String styledCell(CellView cell) {
         if (cell == null) return "·";   // safety: cell not yet initialised
         if (cell.isFlagged() && !cell.isRevealed()) return YELLOW + "F" + RESET;
         if (!cell.isRevealed())                      return "·";
 
-        if (cell instanceof MineCell)  return RED  + "*" + RESET;
-        if (cell instanceof TrapCell)  return RED  + "T" + RESET;
-        if (cell instanceof BonusCell) return GREEN + "B" + RESET;
-
-        if (cell instanceof NormalCell nc) {
-            int d = nc.getAdjacentDanger();
-            if (d == 0) return " ";
-            String colour = (d >= 1 && d <= 8) ? DIGIT_COLOURS[d] : RESET;
-            return colour + d + RESET;
-        }
-        return "?";
+        return switch (cell.getType()) {
+            case "MINE", "TRAP" -> RED + cell.getRevealedSymbol() + RESET;
+            case "BONUS" -> GREEN + cell.getRevealedSymbol() + RESET;
+            case "NORMAL" -> {
+                int d = cell.getAdjacentDanger();
+                String colour = (d >= 1 && d <= 8) ? DIGIT_COLOURS[d] : RESET;
+                yield d == 0 ? " " : colour + d + RESET;
+            }
+            default -> cell.getRevealedSymbol();
+        };
     }
 
     // ── status bar ────────────────────────────────────────────────────────────
 
     private void printStatusBar() {
-        Player       player   = engine.getPlayer();
         GameSettings settings = engine.getSettings();
-        GameTimer    timer    = engine.getTimer();
 
         StringBuilder sb = new StringBuilder();
-        sb.append(BOLD).append("── ").append(player.getName()).append(RESET);
+        sb.append(BOLD).append("── ").append(engine.getPlayerName()).append(RESET);
         sb.append("  |  💣 ").append(engine.getRemainingMineCount()).append(" mines");
-        sb.append("  |  Score: ").append(player.getScore());
+        sb.append("  |  Score: ").append(engine.getScore());
 
         if (settings.isLivesEnabled()) {
-            sb.append("  |  ❤ ").append(player.getLives()).append("/")
+            sb.append("  |  ❤ ").append(engine.getLives()).append("/")
               .append(settings.getMaxLives());
         }
-        if (timer != null && timer.isRunning()) {
+        if (engine.isTimerRunning()) {
             if (settings.isTimeLimitEnabled()) {
-                long rem = timer.getRemainingSeconds();
+                long rem = engine.getRemainingSeconds();
                 String colour = rem <= 30 ? RED : (rem <= 60 ? YELLOW : GREEN);
-                sb.append("  |  ⏱ ").append(colour).append(timer.getFormattedRemaining()).append(RESET);
+                sb.append("  |  ⏱ ").append(colour).append(engine.getFormattedRemaining()).append(RESET);
             } else {
-                sb.append("  |  ⏱ ").append(timer.getFormattedElapsed());
+                sb.append("  |  ⏱ ").append(engine.getFormattedElapsed());
             }
         }
-        if (player.isUndoAvailable()) sb.append("  |  ↩ UNDO READY");
+        if (engine.isUndoAvailable()) sb.append("  |  ↩ UNDO READY");
 
         System.out.println(sb);
     }
@@ -388,21 +379,17 @@ public class ConsoleUI {
     }
 
     private void printWinSummary() {
-        Player    player = engine.getPlayer();
-        GameTimer timer  = engine.getTimer();
         System.out.println();
-        System.out.println("  Final score : " + player.getScore());
-        if (timer != null) System.out.println("  Time taken  : " + timer.getFormattedElapsed());
+        System.out.println("  Final score : " + engine.getScore());
+        System.out.println("  Time taken  : " + engine.getFormattedElapsed());
         if (engine.getSettings().isLivesEnabled())
-            System.out.println("  Lives left  : " + player.getLives());
+            System.out.println("  Lives left  : " + engine.getLives());
     }
 
     private void printLossSummary() {
-        Player    player = engine.getPlayer();
-        GameTimer timer  = engine.getTimer();
         System.out.println();
-        System.out.println("  Score so far : " + player.getScore());
-        if (timer != null) System.out.println("  Survived for : " + timer.getFormattedElapsed());
+        System.out.println("  Score so far : " + engine.getScore());
+        System.out.println("  Survived for : " + engine.getFormattedElapsed());
     }
 
     private boolean offerReplay() {
