@@ -171,16 +171,17 @@ public class GameEngine {
     /**
      * Attempts to use the undo token granted by a BonusCell.
      * Effect: reveals one random safe cell on behalf of the player.
+     * Keeps the token if no unflagged normal cell can be revealed.
      *
-     * @return true if undo was available and consumed, false otherwise
+     * @return true if a cell was revealed and the token consumed, false otherwise
      * @throws GameOverException if time expires or the safe reveal triggers a win
      */
     public boolean useUndo() throws GameOverException {
         assertGameInProgress();
         checkTimeLimit();
         if (!player.isUndoAvailable()) return false;
+        if (board.revealRandomSafeCells(1, player) == 0) return false;
         player.consumeUndo();
-        board.revealRandomSafeCells(1, player);
         checkWin();
         return true;
     }

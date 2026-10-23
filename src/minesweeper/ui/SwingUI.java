@@ -232,7 +232,9 @@ public class SwingUI extends JFrame {
             if (engine.useUndo()) {
                 setMessage("↩ Undo used! A safe cell was revealed for you.");
             } else {
-                setMessage("No undo token available.");
+                setMessage(engine.isUndoAvailable()
+                        ? "No unflagged safe cell available. Your undo token is kept."
+                        : "No undo token available.");
             }
         } catch (GameOverException e) {
             handleGameOver(e.isWon());

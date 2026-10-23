@@ -1,6 +1,9 @@
 package minesweeper.engine;
 
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import javax.swing.SwingUtilities;
 import minesweeper.engine.*;
 import minesweeper.exceptions.*;
@@ -42,6 +45,14 @@ public final class RevealTests {
                 new TestCase("Repeated clicks preserve Freeze", RevealTests::repeatedFreeze),
                 new TestCase("Invalid clicks preserve Freeze", RevealTests::invalidFreeze),
                 new TestCase("Valid reveals consume Freeze once", RevealTests::validFreeze),
+                new TestCase("Random safe reveals report their actual count and protect other cells", RevealTests::safeRevealCount),
+                new TestCase("Nonpositive safe reveal requests leave the board unchanged", RevealTests::nonpositiveSafeReveal),
+                new TestCase("Blocked undo preserves its earned token", RevealTests::blockedUndo),
+                new TestCase("Undo succeeds once after unflagging a safe cell", RevealTests::successfulUndo),
+                new TestCase("Undo without a token leaves an available cell hidden", RevealTests::missingUndo),
+                new TestCase("Undo consumes its token before reporting a win", RevealTests::winningUndo),
+                new TestCase("Console explains blocked undo without claiming success", () -> undoConsole(true)),
+                new TestCase("Console explains a missing undo token", () -> undoConsole(false)),
                 new TestCase("Final safe reveal wins the game", RevealTests::winningReveal),
                 new TestCase("Fatal mine reveal loses the game", RevealTests::losingReveal));
         int failures = 0;
@@ -423,6 +434,132 @@ public final class RevealTests {
         } catch (InvalidCoordinateException expected) {
             // Expected validation failure.
         }
+    }
+
+    private static GameEngine engineWithUndoToken() throws Exception {
+        GameEngine engine = startedEngine();
+        // Replace a safe placeholder with a real bonus; keep the safe-cell total unchanged.
+        engine.getBoard().setCell(0, 1, new BonusCell(0, 1, BonusType.UNDO_LAST_MOVE));
+        engine.revealCell(0, 1);
+        require(engine.isUndoAvailable(), "Revealing the bonus must grant a token");
+        return engine;
+    }
+
+    private static void safeRevealCount() throws Exception {
+        NormalCell flagged = numbered(2);
+        flagged.flag();
+        MineCell mine = new MineCell(0, 3);
+        TrapCell trap = new TrapCell(0, 4, TrapCell.TrapEffect.LOSE_LIFE);
+        BonusCell bonus = new BonusCell(0, 5, BonusType.UNDO_LAST_MOVE);
+        Board<Cell> board = board(numbered(0), numbered(1), flagged, mine, trap, bonus);
+        Player player = new Player("Player", 1);
+        equal(1, board.revealRandomSafeCells(1, player));
+        equal(1, board.getRevealedSafeCells());
+        equal(1, board.revealRandomSafeCells(100, player));
+        equal(0, board.revealRandomSafeCells(1, player));
+        equal(2, board.getRevealedSafeCells());
+        equal(2, player.getScore());
+        require(flagged.isFlagged() && !flagged.isRevealed(), "Random reveals must respect flags");
+        require(!mine.isRevealed() && !trap.isRevealed() && !bonus.isRevealed(),
+                "Random reveals must leave mines, traps and bonuses untouched");
+        require(!mine.hasTriggered() && !trap.hasTriggered() && !bonus.isCollected(),
+                "Random reveals must not trigger special effects");
+    }
+
+    private static void nonpositiveSafeReveal() throws Exception {
+        NormalCell cell = numbered(0);
+        Board<Cell> board = board(cell);
+        Player player = new Player("Player", 1);
+        equal(0, board.revealRandomSafeCells(0, player));
+        equal(0, board.revealRandomSafeCells(-1, player));
+        require(!cell.isRevealed(), "A nonpositive count must leave cells hidden");
+        equal(0, board.getRevealedSafeCells());
+        equal(0, player.getScore());
+    }
+
+    private static void blockedUndo() throws Exception {
+        GameEngine engine = engineWithUndoToken();
+        int score = engine.getScore();
+        int flags = engine.getBoard().getFlaggedCount();
+        require(!engine.useUndo(), "Undo must fail when every hidden normal cell is flagged");
+        require(engine.isUndoAvailable(), "An unsuccessful undo must preserve the token");
+        require(!engine.useUndo() && engine.isUndoAvailable(), "Repeated blocked attempts must preserve the token");
+        equal(score, engine.getScore());
+        equal(flags, engine.getBoard().getFlaggedCount());
+        equal(2, engine.getBoard().getRevealedSafeCells());
+        equal(GameState.IN_PROGRESS, engine.getState());
+    }
+
+    private static void successfulUndo() throws Exception {
+        GameEngine engine = engineWithUndoToken();
+        require(!engine.useUndo() && engine.isUndoAvailable(), "Blocked undo must allow a later retry");
+        Cell target = hiddenNormal(engine);
+        engine.toggleFlag(target.getRow(), target.getCol());
+        int score = engine.getScore();
+        require(engine.useUndo(), "Undo must reveal an available safe cell");
+        require(target.isRevealed() && !engine.isUndoAvailable(), "A successful undo must consume the token");
+        equal(score + 1, engine.getScore());
+        equal(3, engine.getBoard().getRevealedSafeCells());
+        require(!engine.useUndo(), "The consumed token cannot be reused");
+        equal(score + 1, engine.getScore());
+    }
+
+    private static void missingUndo() throws Exception {
+        GameEngine engine = startedEngine();
+        Cell target = hiddenNormal(engine);
+        engine.toggleFlag(target.getRow(), target.getCol());
+        require(!engine.useUndo(), "Undo must require a token");
+        require(!target.isRevealed() && !engine.isUndoAvailable(), "Missing token must leave the cell unchanged");
+        equal(1, engine.getScore());
+        equal(1, engine.getBoard().getRevealedSafeCells());
+    }
+
+    private static void winningUndo() throws Exception {
+        GameEngine engine = engineWithUndoToken();
+        Cell target = hiddenNormal(engine);
+        // Keep the final target flagged while revealing every other safe cell through the engine.
+        for (Cell cell : engine.getBoard().getAllCells()) {
+            if (cell instanceof NormalCell && !cell.isRevealed() && cell != target) {
+                engine.toggleFlag(cell.getRow(), cell.getCol());
+                engine.revealCell(cell.getRow(), cell.getCol());
+            }
+        }
+        equal(engine.getBoard().getTotalSafeCells() - 1, engine.getBoard().getRevealedSafeCells());
+        engine.toggleFlag(target.getRow(), target.getCol());
+        int score = engine.getScore();
+        try {
+            engine.useUndo();
+            throw new AssertionError("Expected a winning GameOverException");
+        } catch (GameOverException result) {
+            require(result.isWon(), "The last safe reveal must win");
+            require(target.isRevealed() && !engine.isUndoAvailable(), "A winning undo must consume the token");
+            equal(GameState.WON, engine.getState());
+            equal(score + 101, engine.getScore());
+            require(!engine.isTimerRunning(), "A win must stop the timer");
+        }
+    }
+
+    private static void undoConsole(boolean hasToken) throws Exception {
+        GameEngine engine = hasToken ? engineWithUndoToken() : startedEngine();
+        PrintStream originalOutput = System.out;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (PrintStream captured = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+            System.setOut(captured);
+            ConsoleUI console = new ConsoleUI();
+            java.lang.reflect.Field engineField = ConsoleUI.class.getDeclaredField("engine");
+            engineField.setAccessible(true);
+            engineField.set(console, engine);
+            java.lang.reflect.Method undo = ConsoleUI.class.getDeclaredMethod("handleUndo");
+            undo.setAccessible(true);
+            equal(Boolean.FALSE, undo.invoke(console));
+        } finally {
+            System.setOut(originalOutput);
+        }
+        String message = output.toString(StandardCharsets.UTF_8);
+        String expected = hasToken ? "No unflagged safe cell available" : "No undo token available";
+        require(message.contains(expected), "Console must explain why undo was not used");
+        require(!message.contains("Undo used!"), "Console must not claim an unsuccessful reveal");
+        equal(hasToken, engine.isUndoAvailable());
     }
 
     private static void winningReveal() throws Exception {

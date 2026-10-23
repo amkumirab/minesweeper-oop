@@ -123,10 +123,12 @@ public class Board<T extends Cell> {
     // ── bonus helper ─────────────────────────────────────────────────────────
 
     /**
-     * Reveals {@code count} random unrevealed safe (NormalCell) cells.
+     * Reveals up to {@code count} random unrevealed, unflagged NormalCell cells.
      * Called by BonusCell when REVEAL_SAFE_CELLS is applied.
+     *
+     * @return the number actually revealed; zero if none are available or count is nonpositive
      */
-    public void revealRandomSafeCells(int count, Player player) {
+    public int revealRandomSafeCells(int count, Player player) {
         List<NormalCell> candidates = new ArrayList<>();
 
         for (int r = 0; r < rows; r++) {
@@ -149,6 +151,7 @@ public class Board<T extends Cell> {
                 revealed++;
             }
         }
+        return revealed;
     }
 
     // ── flag toggle ──────────────────────────────────────────────────────────

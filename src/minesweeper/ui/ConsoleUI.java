@@ -259,7 +259,10 @@ public class ConsoleUI {
                 System.out.println(CYAN + "↩ Undo used! A safe cell has been revealed for you." + RESET);
                 printBoard();
             } else {
-                System.out.println(YELLOW + "⚠ No undo token available. Collect a 🎁 Bonus to get one." + RESET);
+                String reason = engine.isUndoAvailable()
+                        ? "No unflagged safe cell available. Your undo token is kept."
+                        : "No undo token available. Collect a 🎁 Bonus to get one.";
+                System.out.println(YELLOW + "⚠ " + reason + RESET);
             }
         } catch (GameOverException e) {
             printGameOver(e);
