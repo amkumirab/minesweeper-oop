@@ -23,6 +23,7 @@ public class SwingUI extends JFrame {
     private GameEngine   engine;
     private GameSettings settings;
     private CellButton[][] buttons;
+    private boolean victoryDialogShown;
 
     // ── header widgets ─────────────────────────────────────────────────────
     private JLabel mineCountLabel;
@@ -63,6 +64,7 @@ public class SwingUI extends JFrame {
     private void startNewGame() {
         // Stop old timer if running
         if (swingTimer != null) swingTimer.stop();
+        victoryDialogShown = false;
 
         // Create engine
         engine = new GameEngine(settings, "Player");
@@ -256,6 +258,14 @@ public class SwingUI extends JFrame {
 
         refreshAllCells();
         updateHeader();
+
+        if (won && !victoryDialogShown) {
+            // Mark before opening the modal dialog, which runs a nested event loop.
+            victoryDialogShown = true;
+            JOptionPane.showMessageDialog(this,
+                    "You won!\nFinal score: " + engine.getScore(),
+                    "Victory", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     // ── refresh ─────────────────────────────────────────────────────────────

@@ -66,6 +66,15 @@ counts and protect flagged and special cells.
 A failing test makes the command exit with a nonzero status.
 Compiled files stay in `out/`.
 
+### Desktop GUI Tests
+
+Run `gui-test.bat` on Windows or `bash gui-test.sh` on Linux / macOS with a
+desktop display. These optional integration tests open real Swing windows and
+close them automatically. They are separate from the regular headless suite.
+They verify wins through normal clicks, flood fill, bonuses, and Undo; final
+score text; OK and window-close dismissal; one dialog per game (including nested
+events); reset for a new game; and no victory dialog on loss.
+
 ---
 
 ## Project Structure
@@ -181,6 +190,7 @@ prevents UI code from revealing a cell without updating the board's counters.
 | ❤ **Lives system** | Multiple lives; game ends only when all are spent |
 | ⏱ **Time limit** | Countdown timer; losing when it hits zero |
 | ↩ **Undo token** | Granted by a bonus; reveals one unflagged normal cell on demand; kept if none is available |
+| 🏆 **Victory dialog** | Shows the final score once per game; dismissing it keeps the completed board visible |
 
 ---
 
@@ -219,6 +229,7 @@ Coordinates are **1-indexed** (top-left = row 1, col 1).
 10. **Force reveal clears the cell's flag** — `Cell.forceReveal()` shows the cell without applying gameplay effects. Clearing the flag in the model keeps text and Swing rendering consistent, including dangerous cells exposed on loss.
 11. **The engine owns mutable game state** — public queries return scalar values or detached `CellView` objects. Neither UI receives the live board, player, timer, or cells. The view stores the cell's polymorphic symbol; each UI keeps its own styling, with the symbol as the fallback for custom cell types.
 12. **Undo consumes a token only after a successful reveal** — `Board.revealRandomSafeCells(count, player)` returns the number actually revealed, up to the requested count. Flagged, revealed, and special cells are excluded; a nonpositive count returns zero. `GameEngine.useUndo()` returns false without consuming the token when no eligible cell is available. On success, it consumes the token before checking for a win. Both UIs distinguish a blocked reveal from a missing token. The board reports the operation's result; the engine owns the token policy. Existing source callers may ignore the new return value, but compiled callers must be rebuilt.
+13. **Victory feedback belongs to the UI** — `GameEngine` keeps the existing win condition and game-ending event. Swing refreshes the completed board and stops its timer before showing a modal `JOptionPane` with the final score. A private per-game flag is set before opening the dialog, because modal dialogs process nested events; this prevents duplicate congratulations. Starting a new game resets that flag. Dismissing the dialog does not restart the game.
 
 `toggleFlag(int, int)` can throw `GameOverException` when time expires, in addition
 to `InvalidCoordinateException` for invalid coordinates. Both interfaces handle
