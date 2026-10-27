@@ -45,6 +45,7 @@ public final class RevealTests {
                 new TestCase("Repeated clicks preserve Freeze", RevealTests::repeatedFreeze),
                 new TestCase("Invalid clicks preserve Freeze", RevealTests::invalidFreeze),
                 new TestCase("Valid reveals consume Freeze once", RevealTests::validFreeze),
+                new TestCase("Freeze reports when no random safe cell can be revealed", RevealTests::blockedFreeze),
                 new TestCase("Random safe reveals report their actual count and protect other cells", RevealTests::safeRevealCount),
                 new TestCase("Nonpositive safe reveal requests leave the board unchanged", RevealTests::nonpositiveSafeReveal),
                 new TestCase("Blocked undo preserves its earned token", RevealTests::blockedUndo),
@@ -425,6 +426,23 @@ public final class RevealTests {
         equal(RevealResult.Outcome.FROZEN, engine.revealCell(cell.getRow(), cell.getCol()).getOutcome());
         require(!engine.getPlayer().hasDebuff("FREEZE"), "Valid reveal must consume Freeze");
         equal(2, engine.getBoard().getRevealedSafeCells());
+    }
+
+    private static void blockedFreeze() throws Exception {
+        GameEngine engine = startedEngine();
+        BonusCell bonus = new BonusCell(0, 1, BonusType.EXTRA_LIFE);
+        engine.getBoard().setCell(0, 1, bonus);
+        engine.getPlayer().addDebuff("FREEZE");
+        int score = engine.getScore();
+        RevealResult result = engine.revealCell(0, 1);
+        equal(RevealResult.Outcome.FROZEN, result.getOutcome());
+        require(result.getMessage().contains("no cell was revealed"), "Freeze must not claim a nonexistent reveal");
+        require(!bonus.isRevealed() && !bonus.isCollected(), "The skipped target must stay hidden");
+        require(!engine.getPlayer().hasDebuff("FREEZE"), "Freeze still consumes one valid attempt");
+        equal(score, engine.getScore());
+        equal(1, engine.getBoard().getRevealedSafeCells());
+        equal(RevealResult.Outcome.BONUS, engine.revealCell(0, 1).getOutcome());
+        require(bonus.isCollected(), "The next attempt must reveal the original bonus normally");
     }
 
     private static void expectInvalidCoordinate(GameEngine engine) throws Exception {

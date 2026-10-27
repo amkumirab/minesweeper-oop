@@ -17,7 +17,7 @@ public final class RevealResult {
         BONUS,            // bonus collected — reward applied
         ALREADY_REVEALED, // no-op: cell was already open
         FLAGGED,          // no-op: flagged cells are protected
-        FROZEN            // player's FREEZE debuff consumed — random safe cell revealed
+        FROZEN            // FREEZE consumed; the message reports whether a random safe reveal succeeded
     }
 
     // ── fields ───────────────────────────────────────────────────────────────

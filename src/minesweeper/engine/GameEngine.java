@@ -111,10 +111,11 @@ public class GameEngine {
         // ── FREEZE debuff: skip this reveal, auto-reveal a safe cell instead ─
         if (player.hasDebuff("FREEZE")) {
             player.removeDebuff("FREEZE");
-            board.revealRandomSafeCells(1, player);
+            int revealed = board.revealRandomSafeCells(1, player);
             checkWin();
             return new RevealResult(RevealResult.Outcome.FROZEN, row, col,
-                    "❄ You were frozen! A random safe cell was revealed instead.");
+                    revealed > 0 ? "❄ You were frozen! A random safe cell was revealed instead."
+                            : "❄ You were frozen! No unflagged normal cell was available, so no cell was revealed.");
         }
 
         // ── normal reveal ────────────────────────────────────────────────────
