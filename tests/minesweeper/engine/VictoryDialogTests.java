@@ -29,6 +29,8 @@ public final class VictoryDialogTests {
                 try {
                     ui = openGame();
                     SwingUI game = ui;
+                    largeBoardFits(ui);
+                    System.out.println("PASS: A 30x30 board fits the usable screen and scrolls to its last cell");
                     for (String kind : new String[]{"normal", "flood", "bonus", "undo"}) {
                         winningDialog(ui, kind);
                         System.out.println("PASS: " + kind + " win shows one dialog, preserves the board and resets for a new game");
@@ -40,7 +42,7 @@ public final class VictoryDialogTests {
                     expectDialogs(ui, () -> click(game, mine.getRow(), mine.getCol()), 0, false);
                     require(engine.getState() == GameState.LOST, "A fatal mine must lose, not congratulate");
                     System.out.println("PASS: Losing does not show a victory dialog");
-                    System.out.println("5/5 GUI tests passed.");
+                    System.out.println("6/6 GUI tests passed.");
                 } catch (Exception error) {
                     throw new RuntimeException(error);
                 } finally {
@@ -71,6 +73,33 @@ public final class VictoryDialogTests {
         choosePreset.start();
         try { return new SwingUI(); }
         finally { choosePreset.stop(); }
+    }
+
+    private static void largeBoardFits(SwingUI ui) throws Exception {
+        Field settings = SwingUI.class.getDeclaredField("settings");
+        settings.setAccessible(true);
+        settings.set(ui, new GameSettings.Builder().rows(30).cols(30).mineCount(100).build());
+        invoke(ui, "startNewGame");
+        ui.validate();
+        Rectangle screen = new Rectangle(ui.getGraphicsConfiguration().getBounds());
+        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(ui.getGraphicsConfiguration());
+        screen.x += insets.left;
+        screen.y += insets.top;
+        screen.width -= insets.left + insets.right;
+        screen.height -= insets.top + insets.bottom;
+        require(screen.contains(ui.getBounds()), "The game window must fit inside the usable screen");
+        JPanel board = (JPanel) field(ui, "boardPanel");
+        JScrollPane scroll = (JScrollPane) SwingUtilities.getAncestorOfClass(JScrollPane.class, board);
+        require(scroll != null, "The board must have scrollbars when the screen is too small");
+        CellButton last = ((CellButton[][]) field(ui, "buttons"))[29][29];
+        board.scrollRectToVisible(last.getBounds());
+        require(scroll.getViewport().getViewRect().contains(last.getBounds()), "The last cell must be reachable");
+        JLabel footer = (JLabel) field(ui, "messageLabel");
+        Rectangle footerBounds = SwingUtilities.convertRectangle(footer.getParent(), footer.getBounds(), ui.getContentPane());
+        require(new Rectangle(0, 0, ui.getContentPane().getWidth(), ui.getContentPane().getHeight()).contains(footerBounds),
+                "Scrolling the board must not hide the status message");
+        click(ui, 29, 29);
+        require(((GameEngine) field(ui, "engine")).getCell(29, 29).isRevealed(), "The last cell must remain playable");
     }
 
     private static GameEngine prepare(SwingUI ui, String kind) throws Exception {

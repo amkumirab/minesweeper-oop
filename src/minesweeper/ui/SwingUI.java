@@ -116,7 +116,9 @@ public class SwingUI extends JFrame {
             }
         }
 
-        add(boardPanel, BorderLayout.CENTER);
+        JScrollPane boardScroll = new JScrollPane(boardPanel);
+        boardScroll.setBorder(null);
+        add(boardScroll, BorderLayout.CENTER);
 
         // ── timer ───────────────────────────────────────────────────────────
         swingTimer = new Timer(1000, e -> updateTimerDisplay());
@@ -125,8 +127,21 @@ public class SwingUI extends JFrame {
         // ── final ───────────────────────────────────────────────────────────
         refreshAllCells();
         pack();
-        setLocationRelativeTo(null);
+        fitToScreen();
         setVisible(true);
+    }
+
+    /** Keeps the header and status visible while a large board scrolls independently. */
+    private void fitToScreen() {
+        Rectangle screen = new Rectangle(getGraphicsConfiguration().getBounds());
+        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(getGraphicsConfiguration());
+        screen.x += insets.left;
+        screen.y += insets.top;
+        screen.width -= insets.left + insets.right;
+        screen.height -= insets.top + insets.bottom;
+        setSize(Math.min(getWidth(), screen.width), Math.min(getHeight(), screen.height));
+        setLocation(screen.x + (screen.width - getWidth()) / 2,
+                screen.y + (screen.height - getHeight()) / 2);
     }
 
     // ── header ─────────────────────────────────────────────────────────────

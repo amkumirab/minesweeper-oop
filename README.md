@@ -78,6 +78,8 @@ close them automatically. They are separate from the regular headless suite.
 They verify wins through normal clicks, flood fill, bonuses, and Undo; final
 score text; OK and window-close dismissal; one dialog per game (including nested
 events); reset for a new game; and no victory dialog on loss.
+They also check that a 30x30 board fits the usable screen, scrolls to its last
+cell, and keeps the status message visible.
 
 ---
 
@@ -200,6 +202,7 @@ time, and move history return to their initial values.
 | ⏱ **Time limit** | Countdown timer; losing when it hits zero |
 | ↩ **Undo token** | Granted by a bonus; reveals one unflagged normal cell on demand; kept if none is available |
 | 🏆 **Victory dialog** | Shows the final score once per game; dismissing it keeps the completed board visible |
+| **Large boards** | A scrollable board keeps the header and status visible; the window fits the monitor's usable area |
 
 ---
 
