@@ -63,6 +63,9 @@ read-only player/time queries, and rendering through cell views.
 Undo tests cover blocked attempts, retrying after unflagging, missing tokens,
 winning reveals, and console messages. Random safe-reveal tests verify actual
 counts and protect flagged and special cells.
+Console input tests cover end-of-input during setup, gameplay, and replay,
+including after invalid input. The session exits with an `Input closed` message
+instead of a stack trace; the scanner remains responsible only for reading input.
 A failing test makes the command exit with a nonzero status.
 Compiled files stay in `out/`.
 

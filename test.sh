@@ -8,3 +8,4 @@ java -cp out/tests minesweeper.engine.RevealTests
 java -cp out/tests minesweeper.PlayerTests
 java -cp out/tests minesweeper.engine.TimeLimitTests
 java -cp out/tests minesweeper.EncapsulationTests
+java -cp out/tests minesweeper.ConsoleInputTests

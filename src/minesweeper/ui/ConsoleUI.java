@@ -4,6 +4,7 @@ import minesweeper.engine.*;
 import minesweeper.exceptions.*;
 
 import java.util.Scanner;
+import java.util.NoSuchElementException;
 
 /**
  * Console-based user interface.
@@ -55,16 +56,20 @@ public class ConsoleUI {
     public void start() {
         printBanner();
 
-        boolean playAgain;
-        do {
-            String playerName = promptPlayerName();
-            GameSettings settings = promptSettings();
+        try {
+            boolean playAgain;
+            do {
+                String playerName = promptPlayerName();
+                GameSettings settings = promptSettings();
 
-            engine = new GameEngine(settings, playerName);
-            engine.initialise();
+                engine = new GameEngine(settings, playerName);
+                engine.initialise();
 
-            playAgain = runGameLoop();
-        } while (playAgain);
+                playAgain = runGameLoop();
+            } while (playAgain);
+        } catch (NoSuchElementException endOfInput) {
+            System.out.println("\nInput closed. Thanks for playing!");
+        }
     }
 
     // ── setup screens ─────────────────────────────────────────────────────────
