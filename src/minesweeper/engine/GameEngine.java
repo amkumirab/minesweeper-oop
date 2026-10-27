@@ -28,7 +28,7 @@ public class GameEngine {
 
     // ── dependencies (composition) ───────────────────────────────────────────
     private       Board<Cell>    board;
-    private final Player         player;
+    private       Player         player;
     private final GameSettings   settings;
     private       GameState      state;
     private       GameTimer      timer;
@@ -51,8 +51,11 @@ public class GameEngine {
     /**
      * Creates an empty board and prepares the timer (if enabled).
      * Mines are NOT placed yet — that happens on the first reveal (safe-start guarantee).
+     * Repeated calls start a fresh session, preserving only the name and settings.
      */
     public void initialise() {
+        if (timer != null) timer.stop();
+        player = new Player(player.getName(), settings.isLivesEnabled() ? settings.getMaxLives() : 1);
         int rows = settings.getRows();
         int cols = settings.getCols();
         board = new Board<>(rows, cols);

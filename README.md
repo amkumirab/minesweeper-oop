@@ -66,6 +66,7 @@ counts and protect flagged and special cells.
 Console input tests cover end-of-input during setup, gameplay, and replay,
 including after invalid input. The session exits with an `Input closed` message
 instead of a stack trace; the scanner remains responsible only for reading input.
+Engine lifecycle tests verify fresh sessions after active play, loss, and victory.
 A failing test makes the command exit with a nonzero status.
 Compiled files stay in `out/`.
 
@@ -173,6 +174,11 @@ mutating engine-owned objects. Engine regression tests live in that package so
 they can prepare internal scenarios; the public-boundary tests live outside it.
 The model classes remain mutable for use inside the game logic. This boundary
 prevents UI code from revealing a cell without updating the board's counters.
+
+Calling `initialise()` again starts a fresh session: the engine stops its old
+timer and replaces its owned player, board, and timer. The player name and
+immutable settings are preserved; score, lives, tokens, debuffs, flags, elapsed
+time, and move history return to their initial values.
 
 ---
 
