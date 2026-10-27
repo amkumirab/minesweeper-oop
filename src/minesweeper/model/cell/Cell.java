@@ -15,7 +15,7 @@ import minesweeper.model.Player;
  *  - Abstraction    : reveal() and getRevealedSymbol() define the common cell contract
  *  - Inheritance    : NormalCell / MineCell / TrapCell / BonusCell all extend this class
  *  - Multityping    : implements both Revealable and Flaggable
- *  - Coercion       : toString() converts a Cell to String for display purposes
+ *  - String conversion: toString() provides a text representation for display
  */
 public abstract class Cell implements Revealable, Flaggable {
 
@@ -109,7 +109,7 @@ public abstract class Cell implements Revealable, Flaggable {
     public abstract String getType();
 
     /**
-     * Coercion: converts the cell to its display String automatically.
+     * Provides the cell's text representation when Java requests string conversion.
      * Hidden cells show "." (or "F" when flagged); revealed cells show their symbol.
      */
     @Override

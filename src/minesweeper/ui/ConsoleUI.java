@@ -440,7 +440,6 @@ public class ConsoleUI {
 
     /**
      * Reads an integer in [min, max] from stdin, re-prompting on bad input.
-     * Demonstrates <b>overloading</b> — could also call readInt(prompt) without bounds.
      */
     private int readInt(String prompt, int min, int max) {
         while (true) {
