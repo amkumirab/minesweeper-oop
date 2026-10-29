@@ -54,6 +54,7 @@ public final class RevealTests {
                 new TestCase("Undo consumes its token before reporting a win", RevealTests::winningUndo),
                 new TestCase("Console explains blocked undo without claiming success", () -> undoConsole(true)),
                 new TestCase("Console explains a missing undo token", () -> undoConsole(false)),
+                new TestCase("Console shows bonus lives without Enable Lives", RevealTests::consoleBonusLives),
                 new TestCase("Final safe reveal wins the game", RevealTests::winningReveal),
                 new TestCase("Fatal mine reveal loses the game", RevealTests::losingReveal));
         int failures = 0;
@@ -578,6 +579,48 @@ public final class RevealTests {
         require(message.contains(expected), "Console must explain why undo was not used");
         require(!message.contains("Undo used!"), "Console must not claim an unsuccessful reveal");
         equal(hasToken, engine.isUndoAvailable());
+    }
+
+    private static void consoleBonusLives() throws Exception {
+        GameEngine engine = new GameEngine(new GameSettings.Builder()
+                .bonusesEnabled(true).bonusCount(1).build(), "Player");
+        engine.initialise();
+        for (Cell cell : engine.getBoard().getAllCells()) {
+            if (cell.getRow() != 0 || cell.getCol() != 0) engine.toggleFlag(cell.getRow(), cell.getCol());
+        }
+        engine.revealCell(0, 0);
+        engine.getBoard().setCell(0, 1, new BonusCell(0, 1, BonusType.EXTRA_LIFE));
+        engine.revealCell(0, 1);
+        equal(2, engine.getLives());
+        ConsoleUI console = new ConsoleUI();
+        java.lang.reflect.Field engineField = ConsoleUI.class.getDeclaredField("engine");
+        engineField.setAccessible(true);
+        engineField.set(console, engine);
+        PrintStream originalOutput = System.out;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (PrintStream captured = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+            System.setOut(captured);
+            java.lang.reflect.Method status = ConsoleUI.class.getDeclaredMethod("printStatusBar");
+            status.setAccessible(true);
+            status.invoke(console);
+            require(output.toString(StandardCharsets.UTF_8).contains("❤ 2"),
+                    "The status bar must show lives earned from bonuses");
+            for (Cell cell : engine.getBoard().getAllCells()) {
+                if (!(cell instanceof Explodable) && !cell.isRevealed()) {
+                    engine.toggleFlag(cell.getRow(), cell.getCol());
+                    try { engine.revealCell(cell.getRow(), cell.getCol()); }
+                    catch (GameOverException win) { require(win.isWon(), "Safe cells must win"); }
+                }
+            }
+            equal(GameState.WON, engine.getState());
+            java.lang.reflect.Method summary = ConsoleUI.class.getDeclaredMethod("printWinSummary");
+            summary.setAccessible(true);
+            summary.invoke(console);
+            require(output.toString(StandardCharsets.UTF_8).contains("Lives left  : " + engine.getLives()),
+                    "The victory summary must include bonus lives");
+        } finally {
+            System.setOut(originalOutput);
+        }
     }
 
     private static void winningReveal() throws Exception {

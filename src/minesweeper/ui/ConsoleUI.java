@@ -354,9 +354,8 @@ public class ConsoleUI {
         sb.append("  |  💣 ").append(engine.getRemainingMineCount()).append(" mines");
         sb.append("  |  Score: ").append(engine.getScore());
 
-        if (settings.isLivesEnabled()) {
-            sb.append("  |  ❤ ").append(engine.getLives()).append("/")
-              .append(settings.getMaxLives());
+        if (settings.isLivesEnabled() || settings.isBonusesEnabled()) {
+            sb.append("  |  ❤ ").append(engine.getLives());
         }
         if (engine.isTimerRunning()) {
             if (settings.isTimeLimitEnabled()) {
@@ -390,7 +389,7 @@ public class ConsoleUI {
         System.out.println();
         System.out.println("  Final score : " + engine.getScore());
         System.out.println("  Time taken  : " + engine.getFormattedElapsed());
-        if (engine.getSettings().isLivesEnabled())
+        if (engine.getSettings().isLivesEnabled() || engine.getSettings().isBonusesEnabled())
             System.out.println("  Lives left  : " + engine.getLives());
     }
 

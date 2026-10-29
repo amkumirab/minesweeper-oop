@@ -31,6 +31,8 @@ public final class VictoryDialogTests {
                     SwingUI game = ui;
                     largeBoardFits(ui);
                     System.out.println("PASS: A 30x30 board fits the usable screen and scrolls to its last cell");
+                    bonusLives(ui);
+                    System.out.println("PASS: Bonus lives stay visible after collection and mine damage without Enable Lives");
                     for (String kind : new String[]{"normal", "flood", "bonus", "undo"}) {
                         winningDialog(ui, kind);
                         System.out.println("PASS: " + kind + " win shows one dialog, preserves the board and resets for a new game");
@@ -42,7 +44,7 @@ public final class VictoryDialogTests {
                     expectDialogs(ui, () -> click(game, mine.getRow(), mine.getCol()), 0, false);
                     require(engine.getState() == GameState.LOST, "A fatal mine must lose, not congratulate");
                     System.out.println("PASS: Losing does not show a victory dialog");
-                    System.out.println("6/6 GUI tests passed.");
+                    System.out.println("7/7 GUI tests passed.");
                 } catch (Exception error) {
                     throw new RuntimeException(error);
                 } finally {
@@ -100,6 +102,41 @@ public final class VictoryDialogTests {
                 "Scrolling the board must not hide the status message");
         click(ui, 29, 29);
         require(((GameEngine) field(ui, "engine")).getCell(29, 29).isRevealed(), "The last cell must remain playable");
+    }
+
+    private static void bonusLives(SwingUI ui) throws Exception {
+        Field settings = SwingUI.class.getDeclaredField("settings");
+        settings.setAccessible(true);
+        settings.set(ui, new GameSettings.Builder().rows(9).cols(9).mineCount(10)
+                .bonusesEnabled(true).bonusCount(1).build());
+        invoke(ui, "startNewGame");
+        GameEngine engine = (GameEngine) field(ui, "engine");
+        JLabel lives = (JLabel) field(ui, "livesLabel");
+        require(lives.isShowing() && lives.getText().trim().equals("❤"),
+                "Bonus-only games must show their initial life");
+        for (Cell cell : engine.getBoard().getAllCells()) {
+            if (cell.getRow() != 0 || cell.getCol() != 0) engine.toggleFlag(cell.getRow(), cell.getCol());
+        }
+        click(ui, 0, 0);
+        engine.getBoard().setCell(0, 1, new BonusCell(0, 1, BonusType.EXTRA_LIFE));
+        click(ui, 0, 1);
+        require(engine.getLives() == 2 && lives.getText().trim().equals("❤❤"),
+                "Collecting Extra Life must update the visible count");
+        Cell mine = engine.getBoard().getAllCells().stream()
+                .filter(cell -> cell instanceof MineCell).findFirst().orElseThrow();
+        engine.toggleFlag(mine.getRow(), mine.getCol());
+        click(ui, mine.getRow(), mine.getCol());
+        require(engine.getState() == GameState.IN_PROGRESS && engine.getLives() == 1
+                        && lives.isShowing() && lives.getText().trim().equals("❤"),
+                "Mine damage must reduce the displayed count without hiding it");
+        settings.set(ui, new GameSettings.Builder().livesEnabled(true).maxLives(3).build());
+        invoke(ui, "startNewGame");
+        require(((JLabel) field(ui, "livesLabel")).getText().trim().equals("❤❤❤"),
+                "Enable Lives must still show the configured starting lives");
+        settings.set(ui, GameSettings.beginner());
+        invoke(ui, "startNewGame");
+        require(((JLabel) field(ui, "livesLabel")).getParent() == null,
+                "Standard games without bonuses or lives must keep the original header");
     }
 
     private static GameEngine prepare(SwingUI ui, String kind) throws Exception {

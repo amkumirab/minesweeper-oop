@@ -187,7 +187,7 @@ public class SwingUI extends JFrame {
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         left.setOpaque(false);
         left.add(mineCountLabel);
-        if (settings.isLivesEnabled()) left.add(livesLabel);
+        if (settings.isLivesEnabled() || settings.isBonusesEnabled()) left.add(livesLabel);
         if (settings.isBonusesEnabled()) left.add(undoButton);
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
@@ -328,7 +328,7 @@ public class SwingUI extends JFrame {
     }
 
     private String formatLives() {
-        if (!settings.isLivesEnabled()) return "";
+        if (!settings.isLivesEnabled() && !settings.isBonusesEnabled()) return "";
         int lives = engine.getLives();
         return "  " + "❤".repeat(Math.max(0, lives)) + " ";
     }
