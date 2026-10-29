@@ -205,6 +205,8 @@ time, and move history return to their initial values.
 | 🏆 **Victory dialog** | Shows the final score once per game; dismissing it keeps the completed board visible |
 | **Large boards** | A scrollable board keeps the header and status visible; the window fits the monitor's usable area |
 
+The Undo token reveals a safe cell; it does not reverse a previous move or restore a lost life.
+
 ---
 
 ## Commands

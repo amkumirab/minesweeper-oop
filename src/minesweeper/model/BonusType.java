@@ -19,7 +19,7 @@ public enum BonusType {
 
     UNDO_LAST_MOVE(
             "Undo Token",
-            "Gives you the ability to undo your next mistake! ↩",
+            "Grants a token that reveals one random unflagged normal cell. ↩",
             20);
 
     // ── fields ──────────────────────────────────────────────────────────────
